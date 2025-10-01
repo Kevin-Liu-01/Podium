@@ -6,7 +6,7 @@ import LoadingSpinner from "../ui/LoadingSpinner";
 import EventSetupPanel from "../event/EventSetupPanel";
 import FloorDashboard from "../pages/FloorDashboard";
 import AdminPanel from "../pages/AdminPanel";
-import ProjectSetup from "../pages/ProjectSetup";
+import TeamSetup from "../pages/TeamSetup";
 import AssignmentDashboard from "../pages/AssignmentDashboard";
 import ResultsView from "../pages/ResultsView";
 
@@ -24,8 +24,8 @@ const PageRenderer = () => {
     switch (page) {
       case "admin":
         return <AdminPanel />;
-      case "projects":
-        return <ProjectSetup />;
+      case "teams":
+        return <TeamSetup />;
       case "assignments":
         return <AssignmentDashboard />;
       case "results":

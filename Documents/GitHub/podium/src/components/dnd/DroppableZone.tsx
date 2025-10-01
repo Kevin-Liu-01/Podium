@@ -6,42 +6,39 @@ import {
 } from "@dnd-kit/sortable";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowDownCircle } from "lucide-react";
-import type { Project } from "../../lib/types";
-import DraggableProject from "./DraggableProject";
+import DraggableItem from "./DraggableItem";
 
-interface DroppableColumnProps {
+interface DroppableZoneProps {
   id: string;
   title: string;
-  projects: Project[];
-  isRoom?: boolean;
+  items: { id: string; name: string }[];
 }
 
-const DroppableColumn = ({
-  id,
-  title,
-  projects,
-  isRoom = false,
-}: DroppableColumnProps) => {
+const DroppableZone = ({ id, title, items }: DroppableZoneProps) => {
   const { isOver, setNodeRef } = useDroppable({ id });
 
   const dropZoneStyle = isOver
-    ? "border-2 border-dashed border-orange-500 bg-orange-500/10"
-    : "border-2 border-transparent bg-black/20";
-  const maxHeight = isRoom ? "max-h-[12rem]" : "h-full";
+    ? "border-2 border-dashed border-orange-500 bg-orange-900/20"
+    : "border-2 border-transparent bg-black/30";
 
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col gap-2 rounded-lg bg-zinc-900/50 p-3 ${maxHeight}`}
+      className="flex h-full flex-col gap-3 rounded-xl border border-white/10 bg-zinc-900/50 p-4 shadow-lg backdrop-blur-md"
     >
-      <h3 className="text-center font-bold text-zinc-400">{title}</h3>
+      <h3 className="text-center font-bold text-zinc-300">
+        {title}{" "}
+        <span className="text-sm font-normal text-zinc-500">
+          ({items?.length})
+        </span>
+      </h3>
       <SortableContext
         id={id}
-        items={projects.map((p) => p.id)}
+        items={items}
         strategy={verticalListSortingStrategy}
       >
         <div
-          className={`relative flex-grow space-y-2 overflow-y-auto rounded-md p-2 transition-colors duration-300 ${dropZoneStyle}`}
+          className={`relative h-full min-h-[4rem] space-y-2 overflow-y-auto rounded-md p-2 transition-colors duration-300 ${dropZoneStyle}`}
         >
           <AnimatePresence>
             {isOver && (
@@ -52,16 +49,16 @@ const DroppableColumn = ({
                 className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 text-orange-400"
               >
                 <ArrowDownCircle className="h-8 w-8" />
-                <span className="font-semibold">Drop here</span>
+                <span className="font-semibold">Assign Judge Here</span>
               </motion.div>
             )}
           </AnimatePresence>
-          {projects.map((p) => (
-            <DraggableProject key={p.id} project={p} />
+          {items?.map((item) => (
+            <DraggableItem key={item.id} id={item.id} name={item.name} />
           ))}
-          {projects.length === 0 && !isOver && (
+          {items?.length === 0 && !isOver && (
             <div className="flex h-full items-center justify-center">
-              <p className="text-xs text-zinc-500 italic">Drag projects here</p>
+              <p className="text-xs text-zinc-500 italic">Drag judges here</p>
             </div>
           )}
         </div>
@@ -70,4 +67,4 @@ const DroppableColumn = ({
   );
 };
 
-export default DroppableColumn;
+export default DroppableZone;

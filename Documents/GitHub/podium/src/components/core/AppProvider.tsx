@@ -4,27 +4,79 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../../firebase/config";
 import { AppContext } from "../../context/AppContext";
-import type {
-  AppContextType,
-  Event,
-  Judge,
-  Room,
-  Project,
-  Assignment,
-  Floor,
-  Page,
-  Toast,
-  ToastType,
-} from "../../lib/types";
 import Navbar from "./Navbar";
 import ToastContainer from "../toast/ToastContainer";
+
+// --- Type Definitions (Updated) ---
+export interface Team {
+  id: string;
+  name: string;
+  number: number;
+  floorId: string;
+  reviewedBy: { judgeId: string; score: number }[];
+  totalScore: number;
+  averageScore: number;
+}
+
+export interface Judge {
+  id: string;
+  name: string;
+  floorId?: string;
+  currentAssignmentId?: string;
+  completedAssignments: number;
+}
+
+export interface Floor {
+  id: string;
+  name: string;
+  index: number;
+  teamNumberStart: number;
+  teamNumberEnd: number;
+}
+
+export interface Assignment {
+  id: string;
+  judgeId: string;
+  teamIds: string[];
+  submitted: boolean;
+  createdAt: any; // Firebase Timestamp
+  floorId: string;
+}
+
+export interface Event {
+  id: string;
+  name: string;
+}
+
+export type Page = "admin" | "teams" | "assignments" | "results" | string; // For floor IDs
+
+export type ToastType = "info" | "success" | "warning" | "error";
+export interface Toast {
+  id: number;
+  message: string;
+  type: ToastType;
+}
+
+export interface AppContextType {
+  judges: Judge[];
+  teams: Team[];
+  assignments: Assignment[];
+  floors: Floor[];
+  events: Event[];
+  page: Page;
+  setPage: (page: Page) => void;
+  currentEvent: Event | null;
+  setCurrentEventId: (id: string | null) => void;
+  showToast: (message: string, type?: ToastType) => void;
+  isLoading: boolean;
+}
+// --- End Type Definitions ---
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [events, setEvents] = useState<Event[]>([]);
   const [currentEventId, setCurrentEventId] = useState<string | null>(null);
   const [judges, setJudges] = useState<Judge[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
   const [page, setPage] = useState<Page>("admin");
@@ -55,8 +107,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (!currentEventId) {
       setJudges([]);
-      setRooms([]);
-      setProjects([]);
+      setTeams([]);
       setAssignments([]);
       setFloors([]);
       setPage("admin");
@@ -65,8 +116,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     setIsLoading(true);
     const collections = {
       judges: `events/${currentEventId}/judges`,
-      rooms: `events/${currentEventId}/rooms`,
-      projects: `events/${currentEventId}/projects`,
+      teams: `events/${currentEventId}/teams`,
       assignments: `events/${currentEventId}/assignments`,
       floors: `events/${currentEventId}/floors`,
     };
@@ -78,15 +128,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             .sort((a, b) => a.name.localeCompare(b.name)),
         ),
       ),
-      onSnapshot(collection(db, collections.rooms), (s) =>
-        setRooms(
+      onSnapshot(collection(db, collections.teams), (s) =>
+        setTeams(
           s.docs
-            .map((d) => ({ ...d.data(), id: d.id }) as Room)
-            .sort((a, b) => a.number.localeCompare(b.number)),
+            .map((d) => ({ ...d.data(), id: d.id }) as Team)
+            .sort((a, b) => a.number - b.number),
         ),
-      ),
-      onSnapshot(collection(db, collections.projects), (s) =>
-        setProjects(s.docs.map((d) => ({ ...d.data(), id: d.id }) as Project)),
       ),
       onSnapshot(collection(db, collections.assignments), (s) =>
         setAssignments(
@@ -113,8 +160,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const appContextValue: AppContextType = useMemo(
     () => ({
       judges,
-      rooms,
-      projects,
+      teams,
       assignments,
       floors,
       events,
@@ -127,8 +173,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }),
     [
       judges,
-      rooms,
-      projects,
+      teams,
       assignments,
       floors,
       events,
