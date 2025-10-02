@@ -1,16 +1,18 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY", // Replace with your actual Firebase config
-  authDomain: "hackprinceton-judging.firebaseapp.com",
-  projectId: "hackprinceton-judging",
-  storageBucket: "hackprinceton-judging.firebasestorage.app",
-  messagingSenderId: "166324752015",
-  appId: "1:166324752015:web:11d7855047e03eb36ceafa",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase
+// This check prevents re-initialization in a Next.js hot-reload environment
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 
 export { db };
