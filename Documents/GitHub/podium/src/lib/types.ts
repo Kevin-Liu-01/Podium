@@ -1,6 +1,7 @@
 import type { Timestamp } from "firebase/firestore";
 
 export interface Judge {
+  floorId: string;
   id: string;
   name: string;
   currentAssignmentId?: string;
@@ -31,6 +32,7 @@ export interface Project {
   averageScore: number;
 }
 export interface Assignment {
+  teamIds: any;
   id: string;
   judgeId: string;
   projectIds: string[];

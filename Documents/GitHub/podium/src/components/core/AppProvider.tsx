@@ -186,7 +186,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <AppContext.Provider value={appContextValue}>
-      <div className="min-h-screen bg-gradient-to-br from-zinc-900/80 to-zinc-950/90 font-sans text-zinc-200">
+      <div className="min-h-screen font-sans text-zinc-200">
         <ToastContainer toasts={toasts} removeToast={removeToast} />
         <main className="mx-auto max-w-7xl p-4 pt-0 sm:p-6 md:p-8">
           <Navbar />

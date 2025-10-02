@@ -10,11 +10,11 @@ import {
 } from "firebase/firestore";
 import {
   SlidersHorizontal,
-  CheckCircle2,
   UserCheck,
   ChevronDown,
   ChevronsRight,
   History,
+  XCircle,
 } from "lucide-react";
 import { db } from "../../firebase/config";
 import { useAppContext } from "../../context/AppContext";
@@ -35,6 +35,7 @@ const JudgeStatusCard = ({
   isExpanded,
   onSwitchFloor,
   onEnterScores,
+  onRemoveAssignment,
   floors,
   currentFloorId,
 }: {
@@ -49,6 +50,7 @@ const JudgeStatusCard = ({
   isExpanded: boolean;
   onSwitchFloor: (judgeId: string, newFloorId: string) => void;
   onEnterScores: (assignment: Assignment) => void;
+  onRemoveAssignment: (assignmentId: string, judgeId: string) => void;
   floors: Floor[];
   currentFloorId: string;
 }) => {
@@ -107,7 +109,7 @@ const JudgeStatusCard = ({
             className="overflow-hidden"
           >
             <div className="mt-3 border-t border-zinc-700 pt-3">
-              {status === "busy" && (
+              {status === "busy" && assignment && (
                 <>
                   <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold text-zinc-400">
                     <ChevronsRight className="size-4 text-amber-400" />
@@ -122,6 +124,19 @@ const JudgeStatusCard = ({
                         {t.name}
                       </span>
                     ))}
+                  </div>
+                  <div className="mt-4">
+                    <Button
+                      onClick={() =>
+                        onRemoveAssignment(assignment.id, judge.id)
+                      }
+                      variant="destructive"
+                      size="sm"
+                      className="flex items-center gap-2"
+                    >
+                      <XCircle className="size-4" />
+                      Cancel Assignment
+                    </Button>
                   </div>
                 </>
               )}
@@ -343,58 +358,144 @@ const AssignmentDashboard = () => {
     }
   };
 
+  const handleRemoveAssignment = async (
+    assignmentId: string,
+    judgeId: string,
+  ) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to remove this active assignment? This cannot be undone.",
+      )
+    ) {
+      return;
+    }
+    setIsAssigning(true);
+    try {
+      const batch = writeBatch(db);
+      const assignmentRef = doc(
+        db,
+        `events/${currentEvent!.id}/assignments`,
+        assignmentId,
+      );
+      const judgeRef = doc(db, `events/${currentEvent!.id}/judges`, judgeId);
+
+      batch.delete(assignmentRef);
+      batch.update(judgeRef, { currentAssignmentId: null });
+
+      await batch.commit();
+      showToast("Assignment successfully removed.", "success");
+    } catch (error) {
+      console.error("Failed to remove assignment:", error);
+      showToast("An error occurred while removing the assignment.", "error");
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
   const generateAssignments = async () => {
     if (autoSelectedJudgeIds.length === 0)
       return showToast("Please select at least one judge.", "error");
     if (!selectedFloorId) return showToast("Please select a floor.", "error");
     setIsAssigning(true);
+
     try {
       const allTeamsOnFloor = teams
         .filter((t) => t.floorId === selectedFloorId)
         .sort((a, b) => a.number - b.number);
       const allSubmittedAssignments = assignments.filter((a) => a.submitted);
-      const batch = writeBatch(db);
-      let assignmentsCreated = 0;
+      const activeAssignments = assignments.filter((a) => !a.submitted);
+
+      const globallyLockedTeamIds = new Set(
+        activeAssignments.flatMap((a) => a.teamIds),
+      );
+
       const selectedJudgesList = autoSelectedJudgeIds
         .map((id) => judges.find((j) => j.id === id))
         .filter((j): j is Judge => !!j);
 
+      const newAssignmentsToCreate = [];
+      const failedAssignments = []; // <-- For tracking failures
+
       for (const judge of selectedJudgesList) {
-        const judgedTeamIds = new Set(
+        const alreadyJudgedIds = new Set(
           allSubmittedAssignments
             .filter((a) => a.judgeId === judge.id)
             .flatMap((a) => a.teamIds),
         );
+
         const candidateTeams = allTeamsOnFloor.filter(
-          (team) => !judgedTeamIds.has(team.id),
+          (team) =>
+            !alreadyJudgedIds.has(team.id) &&
+            !globallyLockedTeamIds.has(team.id),
         );
+
         if (candidateTeams.length < 5) {
-          showToast(`Not enough eligible teams for ${judge.name}.`, "warning");
+          const reason =
+            allTeamsOnFloor.length - alreadyJudgedIds.size < 5
+              ? "has judged nearly all teams"
+              : "not enough free teams available";
+          failedAssignments.push({ judgeName: judge.name, reason });
           continue;
         }
 
         let bestAssignment: Team[] | null = null;
         let lowestPressureScore = Infinity;
+
+        // Pass 1: Strict search
         for (let i = 0; i <= candidateTeams.length - 5; i++) {
-          const currentWindow = candidateTeams.slice(i, i + 5);
-          if (currentWindow[4].number - currentWindow[0].number > 15) continue;
-          const pressureScore = currentWindow.reduce(
+          const window = candidateTeams.slice(i, i + 5);
+          if (window[4].number - window[0].number > 15) continue;
+
+          const pressureScore = window.reduce(
             (sum, team) => sum + team.reviewedBy.length,
             0,
           );
           if (pressureScore < lowestPressureScore) {
             lowestPressureScore = pressureScore;
-            bestAssignment = currentWindow;
+            bestAssignment = window;
+          }
+        }
+
+        // Pass 2: Relaxed search (if needed)
+        if (bestAssignment === null) {
+          lowestPressureScore = Infinity;
+          for (let i = 0; i <= candidateTeams.length - 5; i++) {
+            const window = candidateTeams.slice(i, i + 5);
+            const pressureScore = window.reduce(
+              (sum, team) => sum + team.reviewedBy.length,
+              0,
+            );
+            if (pressureScore < lowestPressureScore) {
+              lowestPressureScore = pressureScore;
+              bestAssignment = window;
+            }
           }
         }
 
         if (bestAssignment) {
+          newAssignmentsToCreate.push({ judge, teams: bestAssignment });
+          bestAssignment.forEach((team) => globallyLockedTeamIds.add(team.id));
+        } else {
+          // This case is rare but possible if candidateTeams < 5
+          failedAssignments.push({
+            judgeName: judge.name,
+            reason: "no suitable group found",
+          });
+        }
+      }
+
+      // --- New Comprehensive Feedback Logic ---
+
+      // 1. Handle and commit successful assignments
+      if (newAssignmentsToCreate.length > 0) {
+        const batch = writeBatch(db);
+        for (const { judge, teams } of newAssignmentsToCreate) {
           const assignmentRef = doc(
             collection(db, `events/${currentEvent!.id}/assignments`),
           );
           batch.set(assignmentRef, {
             judgeId: judge.id,
-            teamIds: bestAssignment.map((t) => t.id),
+            teamIds: teams.map((t) => t.id),
             submitted: false,
             createdAt: Timestamp.now(),
             floorId: selectedFloorId,
@@ -402,20 +503,32 @@ const AssignmentDashboard = () => {
           batch.update(doc(db, `events/${currentEvent!.id}/judges`, judge.id), {
             currentAssignmentId: assignmentRef.id,
           });
-          assignmentsCreated++;
-        } else {
-          showToast(
-            `Could not find a suitable assignment for ${judge.name}. Check constraints.`,
-            "info",
-          );
         }
-      }
-      if (assignmentsCreated > 0) {
         await batch.commit();
-        showToast(`${assignmentsCreated} assignment(s) created!`, "success");
-        setAutoSelectedJudgeIds([]);
-      } else {
-        showToast("No new assignments were created.", "info");
+        showToast(
+          `${newAssignmentsToCreate.length} assignment(s) created!`,
+          "success",
+        );
+        setAutoSelectedJudgeIds([]); // Clear selection on success
+      }
+
+      // 2. Report any failures with specific reasons
+      if (failedAssignments.length > 0) {
+        const failureSummary = failedAssignments
+          .map((f) => `${f.judgeName} (${f.reason})`)
+          .join("; ");
+        showToast(`Could not assign: ${failureSummary}`, "warning", {
+          duration: 8000, // Show for 8 seconds
+        });
+      }
+
+      // 3. Handle case where nothing was done
+      if (
+        newAssignmentsToCreate.length === 0 &&
+        failedAssignments.length === 0 &&
+        autoSelectedJudgeIds.length > 0
+      ) {
+        showToast("Selected judges could not be assigned.", "info");
       }
     } catch (error) {
       console.error("Failed to generate assignments:", error);
@@ -675,6 +788,7 @@ const AssignmentDashboard = () => {
                   }
                   onEnterScores={setAssignmentToScore}
                   onSwitchFloor={handleSwitchFloor}
+                  onRemoveAssignment={handleRemoveAssignment}
                   floors={floors}
                   currentFloorId={selectedFloorId}
                 />
@@ -700,6 +814,7 @@ const AssignmentDashboard = () => {
                 }
                 onEnterScores={setAssignmentToScore}
                 onSwitchFloor={handleSwitchFloor}
+                onRemoveAssignment={handleRemoveAssignment}
                 floors={floors}
                 currentFloorId={selectedFloorId}
               />
@@ -724,6 +839,7 @@ const AssignmentDashboard = () => {
                 }
                 onEnterScores={setAssignmentToScore}
                 onSwitchFloor={handleSwitchFloor}
+                onRemoveAssignment={handleRemoveAssignment}
                 floors={floors}
                 currentFloorId={selectedFloorId}
               />

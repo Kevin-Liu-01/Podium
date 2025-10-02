@@ -24,7 +24,7 @@ const DroppableZone = ({ id, title, items }: DroppableZoneProps) => {
   return (
     <div
       ref={setNodeRef}
-      className="flex h-full flex-col gap-3 rounded-xl border border-white/10 bg-zinc-900/50 p-4 shadow-lg backdrop-blur-md"
+      className="flex h-full flex-col gap-3 rounded-xl border border-white/10 bg-zinc-900/50 p-4 shadow-lg backdrop-blur-md transition-all hover:border-orange-500/20"
     >
       <h3 className="text-center font-bold text-zinc-300">
         {title}{" "}

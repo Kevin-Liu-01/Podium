@@ -88,12 +88,11 @@ const EventSetupPanel = () => {
     }
   };
 
-  const MIN_CARDS = 8;
+  const MIN_CARDS = 12;
   const skeletonCount = Math.max(0, MIN_CARDS - (events.length + 1));
 
   return (
     <>
-      <div className="fixed inset-0 -z-20 h-full w-full bg-zinc-950 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]"></div>
       <div className="space-y-12">
         <div className="mt-4 text-center">
           <h1 className="bg-gradient-to-br from-white via-zinc-300 to-zinc-500 bg-clip-text text-5xl font-bold tracking-tight text-transparent md:text-6xl">

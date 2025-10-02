@@ -39,7 +39,7 @@ const ConfirmationDialog = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="relative z-10 w-full max-w-md rounded-lg border border-zinc-700 bg-zinc-900 p-6 shadow-2xl shadow-black/50"
+            className="relative z-10 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 pl-4 shadow-2xl shadow-black/50"
           >
             <div className="flex items-start gap-4">
               {icon && <div className="mt-1 flex-shrink-0">{icon}</div>}
@@ -50,17 +50,23 @@ const ConfirmationDialog = ({
             </div>
 
             <div className="mt-6 flex justify-end gap-3">
-              <Button variant="secondary" onClick={onClose}>
+              <Button
+                className="bg-orange-600 hover:bg-orange-500"
+                onClick={onClose}
+              >
                 Cancel
               </Button>
-              <Button variant="danger" onClick={onConfirm}>
+              <Button
+                className="bg-zinc-800 hover:bg-red-700"
+                onClick={onConfirm}
+              >
                 Confirm
               </Button>
             </div>
 
             <button
               onClick={onClose}
-              className="absolute top-3 right-3 text-zinc-500 transition-colors hover:text-white"
+              className="absolute top-5 right-6 text-zinc-500 transition-colors hover:text-white"
               aria-label="Close dialog"
             >
               <X className="size-5" />

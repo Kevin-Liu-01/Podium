@@ -16,6 +16,8 @@ import {
   Star,
   MessageSquare,
   Plus,
+  Users2Icon,
+  Loader,
 } from "lucide-react";
 import { db } from "../../firebase/config";
 import { useAppContext } from "../../context/AppContext";
@@ -25,6 +27,7 @@ import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import ScoreDetailModal from "../shared/ScoreDetailModal";
 import { AnimatePresence, motion } from "framer-motion";
+import { Card } from "../ui/Card";
 
 const TeamSetup = () => {
   const { teams, floors, currentEvent, showToast } = useAppContext();
@@ -149,6 +152,12 @@ const TeamSetup = () => {
         {/* --- LEFT COLUMN: CONTROLS --- */}
         <div className="flex flex-col gap-6 lg:col-span-1">
           <MotionCard>
+            <h2 className="mb-4 flex items-center gap-3 text-xl font-bold text-zinc-100">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500/20 text-orange-400">
+                3
+              </span>
+              <Users2Icon className="size-5" /> Create Teams
+            </h2>
             <div className="mb-4 flex rounded-lg bg-zinc-900/50 p-1">
               <Button
                 onClick={() => setMode("bulk")}
@@ -192,6 +201,11 @@ const TeamSetup = () => {
                       disabled={isGenerating}
                       className="w-full bg-rose-800/80 hover:bg-rose-700/80"
                     >
+                      {isGenerating ? (
+                        <Loader className="size-4 animate-spin" />
+                      ) : (
+                        <PlusCircle className="size-4" />
+                      )}
                       {isGenerating
                         ? "Generating..."
                         : "Generate & Replace All"}
@@ -228,8 +242,13 @@ const TeamSetup = () => {
                     <Button
                       type="submit"
                       disabled={isAdding}
-                      className="w-full"
+                      className="w-full bg-gradient-to-br from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400"
                     >
+                      {isAdding ? (
+                        <Loader className="size-4 animate-spin" />
+                      ) : (
+                        <Plus className="size-4" />
+                      )}
                       {isAdding ? "Adding..." : "Add Team"}
                     </Button>
                   </form>
@@ -241,8 +260,8 @@ const TeamSetup = () => {
 
         {/* --- RIGHT COLUMN: TEAMS DISPLAY --- */}
         <div className="lg:col-span-2">
-          <MotionCard className="max-h-[80vh] overflow-y-auto">
-            <div className="sticky top-0 z-10 mb-4 flex items-center justify-between bg-zinc-900/50 py-2 backdrop-blur-lg">
+          <Card className="max-h-[80vh] overflow-y-auto">
+            <div className="sticky top-[-1rem] z-10 mb-4 flex items-center justify-between bg-zinc-900/50 py-2 backdrop-blur-lg">
               <h2 className="text-xl font-bold text-zinc-100">
                 Current Teams ({teams.length})
               </h2>
@@ -282,7 +301,7 @@ const TeamSetup = () => {
                     </h3>
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4">
                       {teamsOnFloor.map((team) => (
-                        <button
+                        <MotionCard
                           key={team.id}
                           onClick={() => setSelectedTeam(team)}
                           className="transform-gpu cursor-pointer rounded-lg bg-zinc-800/70 p-3 text-left shadow-md transition-all hover:-translate-y-1 hover:bg-zinc-700/90 hover:shadow-xl hover:shadow-orange-500/10"
@@ -304,7 +323,7 @@ const TeamSetup = () => {
                               {team.reviewedBy.length}
                             </span>
                           </div>
-                        </button>
+                        </MotionCard>
                       ))}
                     </div>
                   </div>
@@ -317,7 +336,7 @@ const TeamSetup = () => {
                 </p>
               </div>
             )}
-          </MotionCard>
+          </Card>
         </div>
       </div>
       {selectedTeam && (

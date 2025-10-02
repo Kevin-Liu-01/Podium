@@ -34,6 +34,7 @@ import MotionCard from "../ui/MotionCard";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import DroppableZone from "../dnd/DroppableZone";
+import { Card } from "../ui/Card";
 
 // --- Draggable Judge Component ---
 const DraggableJudge = React.memo(({ judge }: { judge: Judge }) => {
@@ -248,7 +249,7 @@ const AdminPanel = () => {
                 </Button>
               </form>
             </div>
-            <div className="max-h-64 overflow-y-auto rounded-lg bg-zinc-900/50 p-3">
+            <Card className="max-h-64 overflow-y-auto rounded-lg bg-zinc-900/50 p-3">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-zinc-900/50 backdrop-blur-sm">
                   <tr>
@@ -282,7 +283,7 @@ const AdminPanel = () => {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </Card>
           </div>
         </MotionCard>
 
