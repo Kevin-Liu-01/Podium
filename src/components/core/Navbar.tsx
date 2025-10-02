@@ -10,12 +10,14 @@ import {
   Download,
   LayoutGrid,
   MapPin,
+  Loader, // Import Loader icon
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext } from "../../context/AppContext";
 import { useExport } from "../../hooks/useExport";
 import type { Page } from "../../lib/types";
 import { CustomDropdown } from "../ui/CustomDropdown";
+import Tooltip from "../ui/Tooltip"; // Import Tooltip component
 
 // A small hook to get formatted time, updating every second.
 const useClock = () => {
@@ -37,7 +39,8 @@ const useClock = () => {
 const Navbar = () => {
   const { page, setPage, floors, events, currentEvent, setCurrentEventId } =
     useAppContext();
-  const { exportToCSV } = useExport();
+  // Get isExporting state from the hook
+  const { exportToCSV, isExporting } = useExport();
   const [isScrolled, setIsScrolled] = useState(false);
   const currentTime = useClock();
 
@@ -48,6 +51,13 @@ const Navbar = () => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Update download handler to be async and pass the current event
+  const handleDownload = async () => {
+    if (currentEvent) {
+      await exportToCSV(currentEvent);
+    }
+  };
 
   const NavButton = ({
     targetPage,
@@ -60,18 +70,19 @@ const Navbar = () => {
   }) => {
     const isActive = page === targetPage;
     return (
-      <button
-        onClick={() => setPage(targetPage)}
-        title={label}
-        className={`relative flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-300 ease-in-out outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 ${
-          isActive
-            ? "bg-gradient-to-br from-orange-500 to-orange-600 text-white [filter:drop-shadow(0_0_6px_theme(colors.orange.500))]"
-            : "bg-white/5 text-zinc-300 shadow-inner shadow-white/10 hover:bg-white/10 hover:text-white"
-        }`}
-      >
-        <span className="h-4 w-4">{icon}</span>
-        <span className="hidden lg:block">{label}</span>
-      </button>
+      <Tooltip content={label} position="bottom">
+        <button
+          onClick={() => setPage(targetPage)}
+          className={`relative flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-300 ease-in-out outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 ${
+            isActive
+              ? "bg-gradient-to-br from-orange-500 to-orange-600 text-white [filter:drop-shadow(0_0_6px_theme(colors.orange.500))]"
+              : "bg-white/5 text-zinc-300 shadow-inner shadow-white/10 hover:bg-white/10 hover:text-white"
+          }`}
+        >
+          <span className="h-4 w-4">{icon}</span>
+          <span className="hidden lg:block">{label}</span>
+        </button>
+      </Tooltip>
     );
   };
 
@@ -96,26 +107,26 @@ const Navbar = () => {
             : "border-transparent bg-transparent shadow-none"
         }`}
       >
-        {/* --- Metallic & Gradient Effects --- */}
-        <div className="absolute top-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-zinc-400/50 to-transparent"></div>
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_0%,rgba(120,120,120,0.15),rgba(120,120,120,0)_60%)]"></div>
-        {/* The new sweeping metallic glint effect */}
-        <div className="absolute top-0 left-[-100%] h-full w-1/2 -skew-x-45 bg-white/5 transition-all duration-700 group-hover:left-[150%]"></div>
+        <div className="absolute inset-0 overflow-hidden rounded-xl">
+          <div className="absolute inset-0 -z-10 h-full bg-zinc-900/80 transition-colors duration-300 group-hover:bg-zinc-900"></div>
+          <div className="absolute top-0 left-0 -z-10 h-full w-full bg-[radial-gradient(circle_at_50%_120%,rgba(249,115,22,0.15),rgba(249,115,22,0)_50%)] opacity-0 transition-opacity duration-500 group-hover:opacity-100"></div>
+          <div className="absolute top-0 left-[-100%] h-full w-1/2 -skew-x-45 bg-white/5 transition-all duration-700 group-hover:left-[150%]"></div>
+        </div>
 
         <div className="mx-auto flex h-full min-h-[44px] max-w-7xl items-center justify-between">
-          {/* --- Left Side: Logo & Event Selector --- */}
           <div className="flex flex-shrink-0 items-center gap-4">
-            <div
-              className="group flex cursor-pointer items-center space-x-2.5 px-2"
-              onClick={() => setCurrentEventId(null)}
-            >
-              <Trophy className="size-6 rotate-12 text-amber-400 [filter:drop-shadow(0_0_8px_theme(colors.amber.500/0.8))] transition-transform duration-300 group-hover:scale-110" />
-              <h1 className="hidden bg-gradient-to-br from-white to-zinc-400 bg-clip-text py-2 text-xl font-bold text-transparent sm:block">
-                PODIUM
-              </h1>
-            </div>
+            <Tooltip content="Return to Event Selection" position="bottom">
+              <div
+                className="group flex cursor-pointer items-center space-x-2.5 px-2"
+                onClick={() => setCurrentEventId(null)}
+              >
+                <Trophy className="size-6 rotate-12 text-amber-400 [filter:drop-shadow(0_0_8px_theme(colors.amber.500/0.8))] transition-transform duration-300 group-hover:scale-110" />
+                <h1 className="hidden bg-gradient-to-br from-white to-zinc-400 bg-clip-text py-2 text-xl font-bold text-transparent sm:block">
+                  PODIUM
+                </h1>
+              </div>
+            </Tooltip>
 
-            {/* Live Clock and Location */}
             {!currentEvent && (
               <div className="hidden items-center gap-2.5 rounded-md bg-black/20 px-3 py-1 text-sm shadow-inner shadow-white/10 lg:flex">
                 <MapPin className="size-4 text-zinc-500" />
@@ -129,21 +140,26 @@ const Navbar = () => {
 
             {currentEvent && (
               <div className="hidden w-full min-w-48 md:block">
-                <CustomDropdown
-                  value={currentEvent.id}
-                  onChange={(id) => setCurrentEventId(id)}
-                  options={events.map((e) => ({ value: e.id, label: e.name }))}
-                  placeholder="Select Event"
-                  icon={<Calendar className="h-4 w-4 text-zinc-400" />}
-                />
+                <Tooltip content="Switch Event" position="bottom">
+                  <div>
+                    <CustomDropdown
+                      value={currentEvent.id}
+                      onChange={(id) => setCurrentEventId(id)}
+                      options={events.map((e) => ({
+                        value: e.id,
+                        label: e.name,
+                      }))}
+                      placeholder="Select Event"
+                      icon={<Calendar className="h-4 w-4 text-zinc-400" />}
+                    />
+                  </div>
+                </Tooltip>
               </div>
             )}
           </div>
 
-          {/* --- Right Side: Dynamic Content --- */}
           <AnimatePresence mode="wait">
             {currentEvent ? (
-              // --- View: Event Controls ---
               <motion.div
                 key="controls"
                 variants={navVariants}
@@ -182,16 +198,23 @@ const Navbar = () => {
                   label="Results"
                   icon={<FileSpreadsheet className="size-4" />}
                 />
-                <button
-                  onClick={() => exportToCSV()}
-                  title="Download Results CSV"
-                  className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm font-semibold text-zinc-300 shadow-inner shadow-white/10 transition-colors hover:bg-white/10 hover:text-white"
-                >
-                  <Download className="size-4" />
-                </button>
+                <Tooltip content="Download Results CSV" position="bottom">
+                  <div>
+                    <button
+                      onClick={handleDownload}
+                      disabled={isExporting}
+                      className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm font-semibold text-zinc-300 shadow-inner shadow-white/10 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:bg-zinc-700"
+                    >
+                      {isExporting ? (
+                        <Loader className="size-4 animate-spin" />
+                      ) : (
+                        <Download className="size-4" />
+                      )}
+                    </button>
+                  </div>
+                </Tooltip>
               </motion.div>
             ) : (
-              // --- View: Home Page / No Event Selected ---
               <motion.div
                 key="home"
                 variants={navVariants}

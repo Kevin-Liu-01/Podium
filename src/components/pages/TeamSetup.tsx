@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   writeBatch,
   collection,
@@ -16,8 +16,9 @@ import {
   Star,
   MessageSquare,
   Plus,
-  Users2Icon,
+  Users2,
   Loader,
+  ChevronsRight,
 } from "lucide-react";
 import { db } from "../../firebase/config";
 import { useAppContext } from "../../context/AppContext";
@@ -28,49 +29,110 @@ import { Input } from "../ui/Input";
 import ScoreDetailModal from "../shared/ScoreDetailModal";
 import { AnimatePresence, motion } from "framer-motion";
 import { Card } from "../ui/Card";
+import { Label } from "../ui/Label";
+import ConfirmationDialog from "../ui/ConfirmationDialog";
 
 const TeamSetup = () => {
   const { teams, floors, currentEvent, showToast } = useAppContext();
   const [mode, setMode] = useState<"bulk" | "manual">("bulk");
-  const [totalTeams, setTotalTeams] = useState("");
+
+  // State for Bulk Generation
+  const [totalTeams, setTotalTeams] = useState(""); // Default is now empty
+  const [teamPrefix, setTeamPrefix] = useState("Team");
+  const [startNumber, setStartNumber] = useState("1");
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // State for Manual Add
   const [newTeamNumber, setNewTeamNumber] = useState("");
   const [isAdding, setIsAdding] = useState(false);
-  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
 
-  const handleGenerateTeams = async () => {
+  // State for UI
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+
+  // --- NEW: Effect to set default total teams based on floor ranges ---
+  useEffect(() => {
+    if (floors && floors.length > 0) {
+      const maxTeamNumber = floors.reduce(
+        (max, floor) => (floor.teamNumberEnd > max ? floor.teamNumberEnd : max),
+        0,
+      );
+      setTotalTeams(String(maxTeamNumber));
+    }
+  }, [floors]); // This effect runs whenever the floors data changes
+
+  // Memoized value for the bulk generator summary
+  const generationSummary = useMemo(() => {
+    const start = parseInt(startNumber) || 0;
+    const total = parseInt(totalTeams) || 0;
+    if (start <= 0 || total <= 0) return null;
+    const end = start + total - 1;
+    const prefix = teamPrefix.trim() || "Team";
+    return {
+      startText: `${prefix} ${start}`,
+      endText: `${prefix} ${end}`,
+    };
+  }, [totalTeams, teamPrefix, startNumber]);
+
+  // This function now only does validation and opens the dialog
+  const handleGenerateTeamsClick = () => {
     const total = parseInt(totalTeams);
+    const startNum = parseInt(startNumber);
+
     if (isNaN(total) || total <= 0)
-      return showToast("Please enter a valid number of teams.", "error");
+      return showToast("Please enter a valid total number of teams.", "error");
+    if (isNaN(startNum) || startNum <= 0)
+      return showToast("Please enter a valid starting number.", "error");
     if (floors.length === 0)
       return showToast("Please create floors with team ranges first.", "error");
-    if (
-      !window.confirm(
-        `Are you sure? This will DELETE all ${teams.length} existing teams and generate ${total} new ones. This action cannot be undone.`,
-      )
-    )
-      return;
 
+    const endNum = startNum + total - 1;
+    for (let i = startNum; i <= endNum; i++) {
+      const hasFloor = floors.some(
+        (f) => i >= f.teamNumberStart && i <= f.teamNumberEnd,
+      );
+      if (!hasFloor) {
+        showToast(
+          `Error: No floor assignment found for Team #${i}. Please check floor setup.`,
+          "error",
+        );
+        return;
+      }
+    }
+    // If all checks pass, open the confirmation dialog
+    setIsConfirmOpen(true);
+  };
+
+  // This function contains the actual database operations
+  const executeTeamGeneration = async () => {
     setIsGenerating(true);
     try {
+      const total = parseInt(totalTeams);
+      const startNum = parseInt(startNumber);
+      const endNum = startNum + total - 1;
+      const prefix = teamPrefix.trim() || "Team";
+
       const teamsCollectionRef = collection(
         db,
         `events/${currentEvent!.id}/teams`,
       );
-      const deleteBatch = writeBatch(db);
-      const existingTeamsSnapshot = await getDocs(query(teamsCollectionRef));
-      existingTeamsSnapshot.forEach((doc) => deleteBatch.delete(doc.ref));
-      await deleteBatch.commit();
+
+      if (teams.length > 0) {
+        const deleteBatch = writeBatch(db);
+        const existingTeamsSnapshot = await getDocs(query(teamsCollectionRef));
+        existingTeamsSnapshot.forEach((doc) => deleteBatch.delete(doc.ref));
+        await deleteBatch.commit();
+      }
 
       const addBatch = writeBatch(db);
-      for (let i = 1; i <= total; i++) {
+      for (let i = startNum; i <= endNum; i++) {
         const floor = floors.find(
           (f) => i >= f.teamNumberStart && i <= f.teamNumberEnd,
         );
         if (floor) {
           const newTeamRef = doc(teamsCollectionRef);
           addBatch.set(newTeamRef, {
-            name: `Team ${i}`,
+            name: `${prefix} ${i}`,
             number: i,
             floorId: floor.id,
             reviewedBy: [],
@@ -86,7 +148,6 @@ const TeamSetup = () => {
       showToast("An error occurred while generating teams.", "error");
     } finally {
       setIsGenerating(false);
-      setTotalTeams("");
     }
   };
 
@@ -103,6 +164,7 @@ const TeamSetup = () => {
         (f) => number >= f.teamNumberStart && number <= f.teamNumberEnd,
       );
 
+      // Auto-extend logic
       if (!targetFloor && floors.length > 0) {
         const lastFloor = [...floors].sort(
           (a, b) => b.teamNumberEnd - a.teamNumberEnd,
@@ -156,9 +218,9 @@ const TeamSetup = () => {
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500/20 text-orange-400">
                 3
               </span>
-              <Users2Icon className="size-5" /> Create Teams
+              <Users2 className="size-5" /> Create Teams
             </h2>
-            <div className="mb-4 flex rounded-lg bg-zinc-900/50 p-1">
+            <div className="mb-4 flex rounded-lg border border-zinc-800 bg-zinc-950/50 p-1">
               <Button
                 onClick={() => setMode("bulk")}
                 className={`w-1/2 ${mode === "bulk" ? "bg-orange-600" : "bg-transparent"}`}
@@ -185,21 +247,57 @@ const TeamSetup = () => {
               >
                 {mode === "bulk" ? (
                   <div className="space-y-4">
-                    <p className="text-sm text-zinc-400">
-                      This will delete all existing teams and create new ones
-                      based on the total number.
-                    </p>
-                    <Input
-                      type="number"
-                      placeholder="Total number of teams"
-                      value={totalTeams}
-                      onChange={(e) => setTotalTeams(e.target.value)}
-                      min="1"
-                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="prefix">Team Prefix</Label>
+                        <Input
+                          id="prefix"
+                          placeholder="e.g., Team"
+                          value={teamPrefix}
+                          onChange={(e) => setTeamPrefix(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="startNum">Start Number</Label>
+                        <Input
+                          id="startNum"
+                          type="number"
+                          placeholder="e.g., 1"
+                          value={startNumber}
+                          onChange={(e) => setStartNumber(e.target.value)}
+                          min="1"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="totalTeams">
+                        Total Number of Teams to Create
+                      </Label>
+                      <Input
+                        id="totalTeams"
+                        type="number"
+                        placeholder="e.g., 100"
+                        value={totalTeams}
+                        onChange={(e) => setTotalTeams(e.target.value)}
+                        min="1"
+                      />
+                    </div>
+                    {generationSummary && (
+                      <div className="text-center text-sm text-zinc-400">
+                        Will create{" "}
+                        <code className="rounded bg-zinc-800 px-1.5 py-1 text-orange-400">
+                          {generationSummary.startText}
+                        </code>{" "}
+                        <ChevronsRight className="inline-block size-4" />{" "}
+                        <code className="rounded bg-zinc-800 px-1.5 py-1 text-orange-400">
+                          {generationSummary.endText}
+                        </code>
+                      </div>
+                    )}
                     <Button
-                      onClick={handleGenerateTeams}
+                      onClick={handleGenerateTeamsClick}
                       disabled={isGenerating}
-                      className="w-full bg-rose-800/80 hover:bg-rose-700/80"
+                      className="w-full bg-gradient-to-br from-orange-700 to-orange-600 hover:from-orange-600 hover:to-orange-500"
                     >
                       {isGenerating ? (
                         <Loader className="size-4 animate-spin" />
@@ -208,7 +306,7 @@ const TeamSetup = () => {
                       )}
                       {isGenerating
                         ? "Generating..."
-                        : "Generate & Replace All"}
+                        : `Generate & ${teams.length > 0 ? "Replace All" : "Create Teams"}`}
                     </Button>
                     {teams.length > 0 && (
                       <div className="!mt-6 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-900/20 p-3 text-amber-300">
@@ -259,80 +357,66 @@ const TeamSetup = () => {
         </div>
 
         {/* --- RIGHT COLUMN: TEAMS DISPLAY --- */}
-        <div className="lg:col-span-2">
-          <Card className="max-h-[80vh] overflow-y-auto">
+        <div className="h-full lg:col-span-2">
+          <Card className="h-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-[-1rem] z-10 mb-4 flex items-center justify-between bg-zinc-900/50 py-2 backdrop-blur-lg">
               <h2 className="text-xl font-bold text-zinc-100">
                 Current Teams ({teams.length})
               </h2>
-              {mode === "manual" && (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleAddTeam();
-                  }}
-                  className="flex items-center gap-2"
-                >
-                  <Input
-                    type="number"
-                    placeholder="Quick Add #"
-                    value={newTeamNumber}
-                    onChange={(e) => setNewTeamNumber(e.target.value)}
-                    className="w-28"
-                  />
-                  <Button type="submit" disabled={isAdding} size="sm">
-                    <Plus className="size-4" />
-                  </Button>
-                </form>
-              )}
             </div>
-            {floors.length > 0 ? (
-              floors.map((floor) => {
-                const teamsOnFloor = teams.filter(
-                  (t) => t.floorId === floor.id,
-                );
-                if (teamsOnFloor.length === 0) return null;
+            {floors.length > 0 && teams.length > 0 ? (
+              [...floors]
+                .sort((a, b) => a.teamNumberStart - b.teamNumberEnd)
+                .map((floor) => {
+                  const teamsOnFloor = teams
+                    .filter((t) => t.floorId === floor.id)
+                    .sort((a, b) => a.number - b.number);
 
-                return (
-                  <div key={floor.id} className="mb-6">
-                    <h3 className="mb-3 border-b border-zinc-700 pb-2 font-bold text-orange-400">
-                      {floor.name} (Range: {floor.teamNumberStart}-
-                      {floor.teamNumberEnd})
-                    </h3>
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4">
-                      {teamsOnFloor.map((team) => (
-                        <MotionCard
-                          key={team.id}
-                          onClick={() => setSelectedTeam(team)}
-                          className="transform-gpu cursor-pointer rounded-lg bg-zinc-800/70 p-3 text-left shadow-md transition-all hover:-translate-y-1 hover:bg-zinc-700/90 hover:shadow-xl hover:shadow-orange-500/10"
-                        >
-                          <p className="font-bold text-white">{team.name}</p>
-                          <div className="mt-2 flex items-center justify-between text-xs text-zinc-400">
-                            <span
-                              className="flex items-center gap-1.5"
-                              title="Average Score"
-                            >
-                              <Star className="size-3 text-amber-500" />
-                              {team.averageScore.toFixed(2)}
-                            </span>
-                            <span
-                              className="flex items-center gap-1.5"
-                              title="Number of Reviews"
-                            >
-                              <MessageSquare className="size-3 text-sky-500" />
-                              {team.reviewedBy.length}
-                            </span>
-                          </div>
-                        </MotionCard>
-                      ))}
+                  if (teamsOnFloor.length === 0) return null;
+
+                  return (
+                    <div key={floor.id} className="mb-6">
+                      <h3 className="mb-3 border-b border-zinc-700 pb-2 font-bold text-orange-400">
+                        {floor.name} (Range: {floor.teamNumberStart}-
+                        {floor.teamNumberEnd})
+                      </h3>
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4">
+                        {teamsOnFloor.map((team) => (
+                          <MotionCard
+                            key={team.id}
+                            onClick={() => setSelectedTeam(team)}
+                            className="transform-gpu cursor-pointer rounded-lg bg-zinc-800/70 p-3 text-left shadow-md transition-all hover:-translate-y-1 hover:bg-zinc-700/90 hover:shadow-xl hover:shadow-orange-500/10"
+                          >
+                            <p className="font-bold text-white">{team.name}</p>
+                            <div className="mt-2 flex items-center justify-between text-xs text-zinc-400">
+                              <span
+                                className="flex items-center gap-1.5"
+                                title="Average Score"
+                              >
+                                <Star className="size-3 text-amber-500" />
+                                {team.averageScore.toFixed(2)}
+                              </span>
+                              <span
+                                className="flex items-center gap-1.5"
+                                title="Number of Reviews"
+                              >
+                                <MessageSquare className="size-3 text-sky-500" />
+                                {team.reviewedBy.length}
+                              </span>
+                            </div>
+                          </MotionCard>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })
             ) : (
-              <div className="flex h-64 items-center justify-center">
+              <div className="flex h-64 flex-col items-center justify-center gap-4">
+                <Users2 className="size-16 text-zinc-700" />
                 <p className="text-center text-zinc-500 italic">
                   No teams have been generated yet.
+                  <br />
+                  Use the controls on the left to get started.
                 </p>
               </div>
             )}
@@ -345,6 +429,31 @@ const TeamSetup = () => {
           onClose={() => setSelectedTeam(null)}
         />
       )}
+
+      <ConfirmationDialog
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={() => {
+          setIsConfirmOpen(false);
+          executeTeamGeneration();
+        }}
+        title="Confirm Team Generation"
+        icon={<AlertTriangle className="size-8 text-rose-500" />}
+      >
+        <p>
+          You are about to generate{" "}
+          <strong className="text-white">{totalTeams}</strong> teams, from{" "}
+          <strong className="text-white">{generationSummary?.startText}</strong>{" "}
+          to{" "}
+          <strong className="text-white">{generationSummary?.endText}</strong>.
+        </p>
+        {teams.length > 0 && (
+          <p className="mt-3 font-semibold text-rose-400">
+            This will DELETE all {teams.length} existing teams first. This
+            action cannot be undone.
+          </p>
+        )}
+      </ConfirmationDialog>
     </>
   );
 };

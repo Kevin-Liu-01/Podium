@@ -1,3 +1,4 @@
+// components/dashboards/FloorDashboard.tsx
 import React, { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useAppContext } from "../../context/AppContext";
@@ -11,7 +12,7 @@ import ScoreEntryForm from "../shared/ScoreEntryForm";
 import { Button } from "../ui/Button";
 
 const FloorDashboard = ({ floor }: { floor: Floor }) => {
-  const { teams, judges, assignments } = useAppContext();
+  const { teams, judges, assignments, currentEvent } = useAppContext(); // Added currentEvent for robustness check
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [assignmentToScore, setAssignmentToScore] = useState<Assignment | null>(
     null,
@@ -25,7 +26,29 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
     [teams, floor.id],
   );
 
+  // --- NEW: Create a map of team IDs to their assigned judges for efficient lookup ---
+  const assignedJudgesMap = useMemo(() => {
+    const map = new Map<string, string[]>();
+    // Filter for active (unsubmitted) assignments
+    const activeAssignments = assignments.filter((a) => !a.submitted);
+
+    for (const assignment of activeAssignments) {
+      // Robustness: ensure assignment has a judgeId and teamIds
+      if (assignment.judgeId && Array.isArray(assignment.teamIds)) {
+        for (const teamId of assignment.teamIds) {
+          const existing = map.get(teamId) || [];
+          map.set(teamId, [...existing, assignment.judgeId]);
+        }
+      }
+    }
+    return map;
+  }, [assignments]);
+
   const { judgesOut, judgesAvailable, judgesFinished } = useMemo(() => {
+    // Robustness: Return empty arrays if necessary data isn't loaded
+    if (!judges || !teams || !assignments) {
+      return { judgesOut: [], judgesAvailable: [], judgesFinished: [] };
+    }
     const floorJudges = judges.filter((j) => j.floorId === floor.id);
     const teamsOnFloor = teams.filter((t) => t.floorId === floor.id);
     const allSubmittedAssignments = assignments.filter((a) => a.submitted);
@@ -56,10 +79,12 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
           }
         }
       }
-      if (isPossible) {
-        stillAssignable.push(judge);
-      } else {
+
+      const hasJudged = judgedTeamIds.size > 0;
+      if (!isPossible && hasJudged) {
         finished.push(judge);
+      } else {
+        stillAssignable.push(judge);
       }
     }
 
@@ -114,6 +139,15 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
     );
   }
 
+  // --- Robustness: Handle case where event/floor data is missing ---
+  if (!currentEvent || !floor) {
+    return (
+      <MotionCard className="p-8 text-center text-zinc-400">
+        Loading dashboard or data is unavailable...
+      </MotionCard>
+    );
+  }
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
@@ -127,7 +161,6 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
         initial="initial"
         animate="animate"
       >
-        {/* Judges Out Card with "Enter Scores" Button */}
         <MotionCard>
           <h2 className="mb-3 text-lg font-semibold text-amber-400">
             Judges Out ({judgesOut.length})
@@ -135,6 +168,7 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
           <div className="max-h-40 space-y-2 overflow-y-auto pr-2">
             {judgesOut.length > 0 ? (
               judgesOut.map((judge) => {
+                // Robustness: Find assignment, but render gracefully if not found
                 const assignment = assignments.find(
                   (a) => a.id === judge.currentAssignmentId,
                 );
@@ -168,7 +202,6 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
             )}
           </div>
         </MotionCard>
-
         <JudgeList
           title="Available Judges"
           judges={judgesAvailable}
@@ -191,11 +224,19 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
         initial="initial"
         animate="animate"
       >
-        {floorTeams.map((team) => (
-          <motion.div variants={fadeInUp} key={team.id}>
-            <TeamCard team={team} onClick={() => setSelectedTeam(team)} />
-          </motion.div>
-        ))}
+        {floorTeams.map((team) => {
+          // --- MODIFIED: Get the assigned judges and pass them to TeamCard ---
+          const assignedJudgeIds = assignedJudgesMap.get(team.id) || [];
+          return (
+            <motion.div variants={fadeInUp} key={team.id}>
+              <TeamCard
+                team={team}
+                onClick={() => setSelectedTeam(team)}
+                assignedJudgeIds={assignedJudgeIds}
+              />
+            </motion.div>
+          );
+        })}
       </motion.div>
 
       {selectedTeam && (

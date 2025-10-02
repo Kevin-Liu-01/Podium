@@ -1,46 +1,79 @@
-import React from "react";
-import { Star, MessageSquare } from "lucide-react";
-import type { Team } from "../../lib/types";
+import React, { useMemo } from "react";
+import { Star, MessageSquare, Users } from "lucide-react";
+import type { Team, Judge } from "../../lib/types";
 import { useAppContext } from "../../context/AppContext";
 import MotionCard from "../ui/MotionCard";
 import ReviewedJudgeCircle from "./ReviewedJudgeCircle";
+import Tooltip from "../ui/Tooltip"; // Import the new Tooltip component
 
-const TeamCard = ({ team, onClick }: { team: Team; onClick: () => void }) => {
+interface TeamCardProps {
+  team: Team;
+  onClick: () => void;
+  assignedJudgeIds: string[];
+}
+
+const TeamCard = ({ team, onClick, assignedJudgeIds }: TeamCardProps) => {
   const { judges } = useAppContext();
 
   const TARGET_REVIEWS = 5;
   const reviewCount = team.reviewedBy.length;
-
-  // Progress is capped at 100% when the target is met or exceeded.
   const progress = Math.min((reviewCount / TARGET_REVIEWS) * 100, 100);
   const isGoalMet = reviewCount >= TARGET_REVIEWS;
 
-  // Logic for showing overlapping circles with an overflow indicator.
   const MAX_CIRCLES_SHOWN = 7;
   const reviewsToShow = team.reviewedBy.slice(0, MAX_CIRCLES_SHOWN);
   const overflowCount = team.reviewedBy.length - MAX_CIRCLES_SHOWN;
 
+  const assignedJudges = useMemo(
+    () =>
+      assignedJudgeIds
+        .map((id) => judges.find((j) => j.id === id))
+        .filter((j): j is Judge => !!j),
+    [assignedJudgeIds, judges],
+  );
+
+  const assignedTooltipContent =
+    assignedJudges.length > 0
+      ? `Assigned to: ${assignedJudges.map((j) => j.name).join(", ")}`
+      : "";
+
   return (
     <MotionCard
       onClick={onClick}
-      className="group flex h-full cursor-pointer flex-col justify-between gap-4 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-orange-500/50 hover:shadow-2xl hover:shadow-orange-500/10"
+      className="group/card relative flex h-full cursor-pointer flex-col justify-between gap-4 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-orange-500/50 hover:shadow-2xl hover:shadow-orange-500/10"
     >
+      {/* Assigned indicator now uses the Tooltip component */}
+      {assignedJudges.length > 0 && (
+        <div className="absolute top-3 right-3 z-10">
+          <Tooltip content={assignedTooltipContent}>
+            <div className="flex items-center gap-1.5 rounded-full bg-amber-900/80 px-2 py-1 text-xs font-semibold text-amber-300 shadow-md backdrop-blur-sm">
+              <Users className="size-3" />
+              <span>{assignedJudges.length}</span>
+            </div>
+          </Tooltip>
+        </div>
+      )}
+
       {/* Top Section: Name and Key Stats */}
       <div>
-        <h3 className="truncate text-lg font-bold text-white transition-colors group-hover:text-orange-300">
+        <h3 className="truncate pr-12 text-lg font-bold text-white transition-colors group-hover/card:text-orange-300">
           {team.name}
         </h3>
         <div className="mt-2 flex items-center justify-between text-sm">
-          <span className="flex items-center gap-1.5" title="Average Score">
-            <Star className="size-4 text-amber-400" />
-            <span className="font-semibold text-white">
-              {team.averageScore.toFixed(2)}
+          <Tooltip content="Average Score">
+            <span className="flex items-center gap-1.5">
+              <Star className="size-4 text-amber-400" />
+              <span className="font-semibold text-white">
+                {team.averageScore.toFixed(2)}
+              </span>
             </span>
-          </span>
-          <span className="flex items-center gap-1.5" title="Total Reviews">
-            <MessageSquare className="size-4 text-sky-400" />
-            <span className="font-semibold text-white">{reviewCount}</span>
-          </span>
+          </Tooltip>
+          <Tooltip content="Total Reviews">
+            <span className="flex items-center gap-1.5">
+              <MessageSquare className="size-4 text-sky-400" />
+              <span className="font-semibold text-white">{reviewCount}</span>
+            </span>
+          </Tooltip>
         </div>
       </div>
 
@@ -54,7 +87,7 @@ const TeamCard = ({ team, onClick }: { team: Team; onClick: () => void }) => {
         </div>
       </div>
 
-      {/* Reviewed By Section with Overflow */}
+      {/* Reviewed By Section */}
       <div>
         <h4 className="mb-2 text-xs font-semibold tracking-wider text-zinc-400 uppercase">
           Reviewed By
@@ -62,25 +95,26 @@ const TeamCard = ({ team, onClick }: { team: Team; onClick: () => void }) => {
         <div className="flex min-h-[28px] items-center">
           {reviewsToShow.map((review, index) => {
             const judge = judges.find((j) => j.id === review.judgeId);
-            return judge ? (
+            if (!judge) return null;
+            return (
               <div
                 key={`${review.judgeId}-${index}`}
                 style={{ marginLeft: index > 0 ? "-10px" : "0px" }}
               >
                 <ReviewedJudgeCircle judge={judge} review={review} />
               </div>
-            ) : null;
+            );
           })}
-
+          {/* Overflow counter now uses the Tooltip component */}
           {overflowCount > 0 && (
-            <div
-              className="z-10 ml-[-10px] flex size-7 flex-shrink-0 items-center justify-center rounded-full border-2 border-zinc-900 bg-zinc-600 text-xs font-bold text-white"
-              title={`${overflowCount} more reviews`}
-            >
-              +{overflowCount}
+            <div className="z-10 ml-[-10px]">
+              <Tooltip content={`${overflowCount} more reviews`}>
+                <div className="flex size-7 flex-shrink-0 items-center justify-center rounded-full border-2 border-zinc-900 bg-zinc-600 text-xs font-bold text-white">
+                  +{overflowCount}
+                </div>
+              </Tooltip>
             </div>
           )}
-
           {reviewCount === 0 && (
             <p className="text-xs text-zinc-500 italic">No reviews yet</p>
           )}

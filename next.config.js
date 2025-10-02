@@ -37,9 +37,5 @@ const config = {
     // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
-  i18n: {
-    locales: ["en"],
-    defaultLocale: "en",
-  },
 };
 export default config;

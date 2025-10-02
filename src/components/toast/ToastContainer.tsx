@@ -5,15 +5,19 @@ import { Toast } from "./Toast";
 
 interface ToastContainerProps {
   toasts: ToastType[];
-  removeToast: (id: number) => void;
+  removeToast: (id: string | number) => void;
 }
 
 const ToastContainer = ({ toasts, removeToast }: ToastContainerProps) => {
   return (
     <div className="fixed right-5 bottom-5 z-[100] w-80 space-y-3">
       <AnimatePresence>
-        {toasts.map((toast) => (
-          <Toast key={toast.id} toast={toast} removeToast={removeToast} />
+        {toasts.map((toast, index) => (
+          <Toast
+            key={`${toast.id}-${index}`}
+            toast={toast}
+            removeToast={removeToast}
+          />
         ))}
       </AnimatePresence>
     </div>

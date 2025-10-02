@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   doc,
@@ -15,6 +15,7 @@ import {
   ChevronsRight,
   History,
   XCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { db } from "../../firebase/config";
 import { useAppContext } from "../../context/AppContext";
@@ -25,6 +26,7 @@ import { Button } from "../ui/Button";
 import { CustomDropdown } from "../ui/CustomDropdown";
 import { Input } from "../ui/Input";
 import ScoreEntryForm from "../shared/ScoreEntryForm";
+import Tooltip from "../ui/Tooltip"; // Import the Tooltip component
 
 // --- Co-located Judge Status Card Component ---
 const JudgeStatusCard = ({
@@ -83,22 +85,26 @@ const JudgeStatusCard = ({
           </p>
         </div>
         {status === "busy" && assignment && (
-          <Button
-            onClick={() => onEnterScores(assignment)}
-            size="md"
-            className="flex-shrink-0 bg-emerald-600 hover:bg-emerald-500"
-          >
-            Enter Scores
-          </Button>
+          <Tooltip content="Enter scores for this assignment">
+            <Button
+              onClick={() => onEnterScores(assignment)}
+              size="md"
+              className="flex-shrink-0 bg-emerald-600 hover:bg-emerald-500"
+            >
+              Enter Scores
+            </Button>
+          </Tooltip>
         )}
-        <button
-          onClick={onToggle}
-          className="flex-shrink-0 p-1 text-zinc-400 hover:text-white"
-        >
-          <ChevronDown
-            className={`size-5 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-          />
-        </button>
+        <Tooltip content={isExpanded ? "Hide Details" : "Show Details"}>
+          <button
+            onClick={onToggle}
+            className="flex-shrink-0 p-1 text-zinc-400 hover:text-white"
+          >
+            <ChevronDown
+              className={`size-5 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+            />
+          </button>
+        </Tooltip>
       </div>
       <AnimatePresence>
         {isExpanded && (
@@ -126,17 +132,19 @@ const JudgeStatusCard = ({
                     ))}
                   </div>
                   <div className="mt-4">
-                    <Button
-                      onClick={() =>
-                        onRemoveAssignment(assignment.id, judge.id)
-                      }
-                      variant="destructive"
-                      size="sm"
-                      className="flex items-center gap-2"
-                    >
-                      <XCircle className="size-4" />
-                      Cancel Assignment
-                    </Button>
+                    <Tooltip content="Permanently removes this active assignment. This cannot be undone.">
+                      <Button
+                        onClick={() =>
+                          onRemoveAssignment(assignment.id, judge.id)
+                        }
+                        variant="destructive"
+                        size="sm"
+                        className="flex items-center gap-2"
+                      >
+                        <XCircle className="size-4" />
+                        Cancel Assignment
+                      </Button>
+                    </Tooltip>
                   </div>
                 </>
               )}
@@ -161,9 +169,11 @@ const JudgeStatusCard = ({
               {status === "finished" && (
                 <div className="mt-4">
                   {judge.hasSwitchedFloors ? (
-                    <span className="rounded-full bg-zinc-700 px-3 py-1 text-xs font-semibold text-zinc-300">
-                      Switched
-                    </span>
+                    <Tooltip content="This judge has already moved from their original floor.">
+                      <span className="rounded-full bg-zinc-700 px-3 py-1 text-xs font-semibold text-zinc-300">
+                        Switched
+                      </span>
+                    </Tooltip>
                   ) : (
                     <div className="flex items-center gap-2">
                       <CustomDropdown
@@ -174,13 +184,19 @@ const JudgeStatusCard = ({
                           .map((f) => ({ value: f.id, label: f.name }))}
                         placeholder="Move to..."
                       />
-                      <Button
-                        onClick={() => onSwitchFloor(judge.id, targetFloorId)}
-                        disabled={!targetFloorId}
-                        size="sm"
-                      >
-                        Switch Floor
-                      </Button>
+                      <Tooltip content="Move this judge to the selected floor. This can only be done once.">
+                        <div>
+                          <Button
+                            onClick={() =>
+                              onSwitchFloor(judge.id, targetFloorId)
+                            }
+                            disabled={!targetFloorId}
+                            size="sm"
+                          >
+                            Switch Floor
+                          </Button>
+                        </div>
+                      </Tooltip>
                     </div>
                   )}
                 </div>
@@ -257,12 +273,12 @@ const AssignmentDashboard = () => {
 
       details.set(judge.id, {
         completedTeams: Array.from(completedIds)
-          .map((id) => teamMap.get(id!))
+          .map((id) => (id ? teamMap.get(id) : undefined))
           .filter((t): t is Team => !!t),
         currentTeams: currentIds
-          .map((id) => teamMap.get(id!))
+          .map((id) => (id ? teamMap.get(id) : undefined))
           .filter((t): t is Team => !!t),
-        isFinished: !isPossible,
+        isFinished: !isPossible && completedIds.size > 0,
       });
     }
     return details;
@@ -302,7 +318,14 @@ const AssignmentDashboard = () => {
   }, [assignments, manualSelectedJudgeId]);
 
   useEffect(() => {
-    if (floors.length > 0 && !selectedFloorId) setSelectedFloorId(floors[0].id);
+    if (floors.length > 0) {
+      const currentFloorExists = floors.some((f) => f.id === selectedFloorId);
+      if (!selectedFloorId || !currentFloorExists) {
+        setSelectedFloorId(floors[0].id);
+      }
+    } else {
+      setSelectedFloorId("");
+    }
   }, [floors, selectedFloorId]);
 
   useEffect(() => {
@@ -318,7 +341,7 @@ const AssignmentDashboard = () => {
     } else {
       setManualSelectedJudgeId("");
     }
-  }, [selectedFloorId, assignableJudges]);
+  }, [selectedFloorId, assignableJudges, manualSelectedJudgeId]);
 
   useEffect(() => {
     setManualSelectedTeamIds([]);
@@ -342,11 +365,13 @@ const AssignmentDashboard = () => {
 
   const handleSwitchFloor = async (judgeId: string, newFloorId: string) => {
     const judge = judges.find((j) => j.id === judgeId);
-    if (!judge || judge.hasSwitchedFloors)
+    if (!currentEvent || !judge) return;
+    if (judge.hasSwitchedFloors)
       return showToast("This judge has already switched floors.", "warning");
     if (!newFloorId)
       return showToast("Please select a destination floor.", "error");
-    const judgeRef = doc(db, `events/${currentEvent!.id}/judges`, judgeId);
+
+    const judgeRef = doc(db, `events/${currentEvent.id}/judges`, judgeId);
     try {
       await updateDoc(judgeRef, {
         floorId: newFloorId,
@@ -362,6 +387,8 @@ const AssignmentDashboard = () => {
     assignmentId: string,
     judgeId: string,
   ) => {
+    // ... (This function uses window.confirm, which is fine for destructive actions)
+    if (!currentEvent) return;
     if (
       !window.confirm(
         "Are you sure you want to remove this active assignment? This cannot be undone.",
@@ -374,10 +401,10 @@ const AssignmentDashboard = () => {
       const batch = writeBatch(db);
       const assignmentRef = doc(
         db,
-        `events/${currentEvent!.id}/assignments`,
+        `events/${currentEvent.id}/assignments`,
         assignmentId,
       );
-      const judgeRef = doc(db, `events/${currentEvent!.id}/judges`, judgeId);
+      const judgeRef = doc(db, `events/${currentEvent.id}/judges`, judgeId);
 
       batch.delete(assignmentRef);
       batch.update(judgeRef, { currentAssignmentId: null });
@@ -393,6 +420,7 @@ const AssignmentDashboard = () => {
   };
 
   const generateAssignments = async () => {
+    if (!currentEvent) return;
     if (autoSelectedJudgeIds.length === 0)
       return showToast("Please select at least one judge.", "error");
     if (!selectedFloorId) return showToast("Please select a floor.", "error");
@@ -414,7 +442,7 @@ const AssignmentDashboard = () => {
         .filter((j): j is Judge => !!j);
 
       const newAssignmentsToCreate = [];
-      const failedAssignments = []; // <-- For tracking failures
+      const failedAssignments = [];
 
       for (const judge of selectedJudgesList) {
         const alreadyJudgedIds = new Set(
@@ -476,7 +504,6 @@ const AssignmentDashboard = () => {
           newAssignmentsToCreate.push({ judge, teams: bestAssignment });
           bestAssignment.forEach((team) => globallyLockedTeamIds.add(team.id));
         } else {
-          // This case is rare but possible if candidateTeams < 5
           failedAssignments.push({
             judgeName: judge.name,
             reason: "no suitable group found",
@@ -484,14 +511,11 @@ const AssignmentDashboard = () => {
         }
       }
 
-      // --- New Comprehensive Feedback Logic ---
-
-      // 1. Handle and commit successful assignments
       if (newAssignmentsToCreate.length > 0) {
         const batch = writeBatch(db);
         for (const { judge, teams } of newAssignmentsToCreate) {
           const assignmentRef = doc(
-            collection(db, `events/${currentEvent!.id}/assignments`),
+            collection(db, `events/${currentEvent.id}/assignments`),
           );
           batch.set(assignmentRef, {
             judgeId: judge.id,
@@ -500,7 +524,7 @@ const AssignmentDashboard = () => {
             createdAt: Timestamp.now(),
             floorId: selectedFloorId,
           });
-          batch.update(doc(db, `events/${currentEvent!.id}/judges`, judge.id), {
+          batch.update(doc(db, `events/${currentEvent.id}/judges`, judge.id), {
             currentAssignmentId: assignmentRef.id,
           });
         }
@@ -509,20 +533,18 @@ const AssignmentDashboard = () => {
           `${newAssignmentsToCreate.length} assignment(s) created!`,
           "success",
         );
-        setAutoSelectedJudgeIds([]); // Clear selection on success
+        setAutoSelectedJudgeIds([]);
       }
 
-      // 2. Report any failures with specific reasons
       if (failedAssignments.length > 0) {
         const failureSummary = failedAssignments
           .map((f) => `${f.judgeName} (${f.reason})`)
           .join("; ");
         showToast(`Could not assign: ${failureSummary}`, "warning", {
-          duration: 8000, // Show for 8 seconds
+          duration: 8000,
         });
       }
 
-      // 3. Handle case where nothing was done
       if (
         newAssignmentsToCreate.length === 0 &&
         failedAssignments.length === 0 &&
@@ -539,6 +561,7 @@ const AssignmentDashboard = () => {
   };
 
   const createManualAssignment = async () => {
+    if (!currentEvent) return;
     if (!manualSelectedJudgeId)
       return showToast("Please select a judge.", "error");
     if (manualSelectedTeamIds.length === 0)
@@ -547,7 +570,7 @@ const AssignmentDashboard = () => {
     try {
       const batch = writeBatch(db);
       const assignmentRef = doc(
-        collection(db, `events/${currentEvent!.id}/assignments`),
+        collection(db, `events/${currentEvent.id}/assignments`),
       );
       batch.set(assignmentRef, {
         judgeId: manualSelectedJudgeId,
@@ -557,7 +580,7 @@ const AssignmentDashboard = () => {
         floorId: selectedFloorId,
       });
       batch.update(
-        doc(db, `events/${currentEvent!.id}/judges`, manualSelectedJudgeId),
+        doc(db, `events/${currentEvent.id}/judges`, manualSelectedJudgeId),
         { currentAssignmentId: assignmentRef.id },
       );
       await batch.commit();
@@ -571,6 +594,20 @@ const AssignmentDashboard = () => {
       setIsAssigning(false);
     }
   };
+
+  if (!currentEvent) {
+    return (
+      <MotionCard>
+        <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
+          <AlertTriangle className="size-12 text-amber-500" />
+          <h3 className="text-xl font-bold">No Event Selected</h3>
+          <p className="text-zinc-400">
+            Please select an event from the sidebar to manage assignments.
+          </p>
+        </div>
+      </MotionCard>
+    );
+  }
 
   if (assignmentToScore)
     return (
@@ -592,25 +629,33 @@ const AssignmentDashboard = () => {
             value={selectedFloorId}
             onChange={setSelectedFloorId}
             options={floors.map((f) => ({ value: f.id, label: f.name }))}
-            placeholder="Select a floor to manage"
+            placeholder={
+              floors.length > 0
+                ? "Select a floor to manage"
+                : "No floors created"
+            }
+            disabled={floors.length === 0}
           />
         </MotionCard>
 
         <div className="flex border-b border-zinc-700">
-          <button
-            onClick={() => setMode("auto")}
-            className={`flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold transition-colors ${mode === "auto" ? "border-b-2 border-orange-500 text-orange-500" : "text-zinc-400 hover:text-white"}`}
-          >
-            <SlidersHorizontal className="size-4" /> Auto Generator
-          </button>
-          <button
-            onClick={() => setMode("manual")}
-            className={`flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold transition-colors ${mode === "manual" ? "border-b-2 border-orange-500 text-orange-500" : "text-zinc-400 hover:text-white"}`}
-          >
-            <UserCheck className="size-4" /> Manual Assignment
-          </button>
+          <Tooltip content="Automatically assign judges to teams based on algorithm.">
+            <button
+              onClick={() => setMode("auto")}
+              className={`flex w-full items-center justify-center gap-2 px-4 py-2 text-sm font-semibold transition-colors ${mode === "auto" ? "border-b-2 border-orange-500 text-orange-500" : "text-zinc-400 hover:text-white"}`}
+            >
+              <SlidersHorizontal className="size-4" /> Auto Generator
+            </button>
+          </Tooltip>
+          <Tooltip content="Manually select a judge and team(s) to create an assignment.">
+            <button
+              onClick={() => setMode("manual")}
+              className={`flex w-full items-center justify-center gap-2 px-4 py-2 text-sm font-semibold transition-colors ${mode === "manual" ? "border-b-2 border-orange-500 text-orange-500" : "text-zinc-400 hover:text-white"}`}
+            >
+              <UserCheck className="size-4" /> Manual Assignment
+            </button>
+          </Tooltip>
         </div>
-
         <AnimatePresence mode="wait">
           <motion.div
             key={mode}
@@ -629,14 +674,22 @@ const AssignmentDashboard = () => {
                     <label className="font-semibold text-zinc-300">
                       Select Assignable Judges ({assignableJudges.length})
                     </label>
-                    <button
-                      onClick={toggleSelectAllJudges}
-                      className="rounded bg-zinc-600 px-2 py-1 text-xs hover:bg-zinc-500"
+                    <Tooltip
+                      content={
+                        autoSelectedJudgeIds.length === assignableJudges.length
+                          ? "Clear selection"
+                          : "Select all assignable judges"
+                      }
                     >
-                      {autoSelectedJudgeIds.length === assignableJudges.length
-                        ? "Deselect All"
-                        : "Select All"}
-                    </button>
+                      <button
+                        onClick={toggleSelectAllJudges}
+                        className="rounded bg-zinc-600 px-2 py-1 text-xs hover:bg-zinc-500"
+                      >
+                        {autoSelectedJudgeIds.length === assignableJudges.length
+                          ? "Deselect All"
+                          : "Select All"}
+                      </button>
+                    </Tooltip>
                   </div>
                   <div className="max-h-48 space-y-1 overflow-y-auto pr-1">
                     {assignableJudges.length > 0 ? (
@@ -661,22 +714,25 @@ const AssignmentDashboard = () => {
                     )}
                   </div>
                 </div>
-                <Button
-                  onClick={generateAssignments}
-                  disabled={
-                    !autoSelectedJudgeIds.length ||
-                    !selectedFloorId ||
-                    isAssigning
-                  }
-                  className="mt-4 w-full bg-gradient-to-br from-orange-500 to-orange-600 transition-all duration-150 hover:from-orange-600 hover:to-orange-700"
-                >
-                  {isAssigning
-                    ? "Assigning..."
-                    : `Generate & Assign (${autoSelectedJudgeIds.length})`}
-                </Button>
+                <Tooltip content="Automatically finds and assigns the best group of 5 teams to each selected judge.">
+                  <div className="mt-4 w-full">
+                    <Button
+                      onClick={generateAssignments}
+                      disabled={
+                        !autoSelectedJudgeIds.length ||
+                        !selectedFloorId ||
+                        isAssigning
+                      }
+                      className="w-full bg-gradient-to-br from-orange-500 to-orange-600 transition-all duration-150 hover:from-orange-600 hover:to-orange-700"
+                    >
+                      {isAssigning
+                        ? "Assigning..."
+                        : `Generate & Assign (${autoSelectedJudgeIds.length})`}
+                    </Button>
+                  </div>
+                </Tooltip>
               </Card>
             )}
-
             {mode === "manual" && (
               <Card>
                 <h2 className="mb-4 text-xl font-bold text-zinc-100">
@@ -731,27 +787,39 @@ const AssignmentDashboard = () => {
                                 {team.name}
                               </span>
                             </div>
-                            <span className="text-xs text-zinc-400">
-                              {hasJudged
-                                ? "Judged"
-                                : `Reviews: ${team.reviewedBy.length}`}
-                            </span>
+                            {hasJudged ? (
+                              <Tooltip content="This judge has already submitted a review for this team.">
+                                <span className="text-xs text-zinc-400">
+                                  Judged
+                                </span>
+                              </Tooltip>
+                            ) : (
+                              <span className="text-xs text-zinc-400">
+                                {`Reviews: ${team.reviewedBy.length}`}
+                              </span>
+                            )}
                           </label>
                         );
                       })}
                     </div>
                   </div>
-                  <Button
-                    onClick={createManualAssignment}
-                    disabled={
-                      !manualSelectedJudgeId ||
-                      manualSelectedTeamIds.length === 0 ||
-                      isAssigning
-                    }
-                    className="w-full bg-gradient-to-br from-indigo-500 to-indigo-600"
-                  >
-                    {isAssigning ? "Assigning..." : `Create Manual Assignment`}
-                  </Button>
+                  <Tooltip content="Creates a new assignment with the selected judge and team(s).">
+                    <div className="w-full">
+                      <Button
+                        onClick={createManualAssignment}
+                        disabled={
+                          !manualSelectedJudgeId ||
+                          manualSelectedTeamIds.length === 0 ||
+                          isAssigning
+                        }
+                        className="w-full bg-gradient-to-br from-indigo-500 to-indigo-600"
+                      >
+                        {isAssigning
+                          ? "Assigning..."
+                          : `Create Manual Assignment`}
+                      </Button>
+                    </div>
+                  </Tooltip>
                 </div>
               </Card>
             )}
@@ -774,11 +842,13 @@ const AssignmentDashboard = () => {
               const assignment = assignments.find(
                 (a) => a.id === judge.currentAssignmentId,
               );
+              const details = judgeDetailsMap.get(judge.id);
+              if (!details) return null;
               return (
                 <JudgeStatusCard
                   key={judge.id}
                   judge={judge}
-                  details={judgeDetailsMap.get(judge.id)!}
+                  details={details}
                   assignment={assignment}
                   isExpanded={expandedJudgeId === judge.id}
                   onToggle={() =>
@@ -802,23 +872,29 @@ const AssignmentDashboard = () => {
             Assignable ({assignableJudges.length})
           </h3>
           <div className="space-y-2">
-            {assignableJudges.map((judge) => (
-              <JudgeStatusCard
-                key={judge.id}
-                judge={judge}
-                details={judgeDetailsMap.get(judge.id)!}
-                assignment={undefined}
-                isExpanded={expandedJudgeId === judge.id}
-                onToggle={() =>
-                  setExpandedJudgeId((p) => (p === judge.id ? null : judge.id))
-                }
-                onEnterScores={setAssignmentToScore}
-                onSwitchFloor={handleSwitchFloor}
-                onRemoveAssignment={handleRemoveAssignment}
-                floors={floors}
-                currentFloorId={selectedFloorId}
-              />
-            ))}
+            {assignableJudges.map((judge) => {
+              const details = judgeDetailsMap.get(judge.id);
+              if (!details) return null;
+              return (
+                <JudgeStatusCard
+                  key={judge.id}
+                  judge={judge}
+                  details={details}
+                  assignment={undefined}
+                  isExpanded={expandedJudgeId === judge.id}
+                  onToggle={() =>
+                    setExpandedJudgeId((p) =>
+                      p === judge.id ? null : judge.id,
+                    )
+                  }
+                  onEnterScores={setAssignmentToScore}
+                  onSwitchFloor={handleSwitchFloor}
+                  onRemoveAssignment={handleRemoveAssignment}
+                  floors={floors}
+                  currentFloorId={selectedFloorId}
+                />
+              );
+            })}
           </div>
         </div>
 
@@ -827,23 +903,29 @@ const AssignmentDashboard = () => {
             Finished ({finishedJudges.length})
           </h3>
           <div className="space-y-2">
-            {finishedJudges.map((judge) => (
-              <JudgeStatusCard
-                key={judge.id}
-                judge={judge}
-                details={judgeDetailsMap.get(judge.id)!}
-                assignment={undefined}
-                isExpanded={expandedJudgeId === judge.id}
-                onToggle={() =>
-                  setExpandedJudgeId((p) => (p === judge.id ? null : judge.id))
-                }
-                onEnterScores={setAssignmentToScore}
-                onSwitchFloor={handleSwitchFloor}
-                onRemoveAssignment={handleRemoveAssignment}
-                floors={floors}
-                currentFloorId={selectedFloorId}
-              />
-            ))}
+            {finishedJudges.map((judge) => {
+              const details = judgeDetailsMap.get(judge.id);
+              if (!details) return null;
+              return (
+                <JudgeStatusCard
+                  key={judge.id}
+                  judge={judge}
+                  details={details}
+                  assignment={undefined}
+                  isExpanded={expandedJudgeId === judge.id}
+                  onToggle={() =>
+                    setExpandedJudgeId((p) =>
+                      p === judge.id ? null : judge.id,
+                    )
+                  }
+                  onEnterScores={setAssignmentToScore}
+                  onSwitchFloor={handleSwitchFloor}
+                  onRemoveAssignment={handleRemoveAssignment}
+                  floors={floors}
+                  currentFloorId={selectedFloorId}
+                />
+              );
+            })}
           </div>
         </div>
       </MotionCard>
