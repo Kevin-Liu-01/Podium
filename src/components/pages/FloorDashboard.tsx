@@ -10,6 +10,7 @@ import TeamCard from "../shared/TeamCard";
 import ScoreDetailModal from "../shared/ScoreDetailModal";
 import ScoreEntryForm from "../shared/ScoreEntryForm";
 import { Button } from "../ui/Button";
+import { PlusIcon } from "lucide-react";
 
 const FloorDashboard = ({ floor }: { floor: Floor }) => {
   const { teams, judges, assignments, currentEvent } = useAppContext(); // Added currentEvent for robustness check
@@ -150,94 +151,99 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">{floor.name} Dashboard</h1>
-        <p className="text-lg text-zinc-400">{floorTeams.length} Teams</p>
-      </div>
+      <MotionCard className="mb-6 rounded-lg border border-zinc-800 bg-zinc-900/50 shadow-lg shadow-black/30">
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-3xl font-bold">{floor.name} Dashboard</h1>
+          <p className="text-lg text-zinc-400">{floorTeams.length} Teams</p>
+        </div>
 
-      <motion.div
-        className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3"
-        variants={staggerContainer}
-        initial="initial"
-        animate="animate"
-      >
-        <MotionCard>
-          <h2 className="mb-3 text-lg font-semibold text-amber-400">
-            Judges Out ({judgesOut.length})
-          </h2>
-          <div className="max-h-40 space-y-2 overflow-y-auto pr-2">
-            {judgesOut.length > 0 ? (
-              judgesOut.map((judge) => {
-                // Robustness: Find assignment, but render gracefully if not found
-                const assignment = assignments.find(
-                  (a) => a.id === judge.currentAssignmentId,
-                );
-                return (
-                  <div
-                    key={judge.id}
-                    className="flex items-center justify-between gap-3 rounded-xl bg-zinc-800 p-2 text-sm"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`h-2 w-2 flex-shrink-0 rounded-full ${getColorForJudge(judge.id)}`}
-                      ></span>
-                      <span className="font-medium">{judge.name}</span>
+        <motion.div
+          className="grid grid-cols-1 gap-6 md:grid-cols-3"
+          variants={staggerContainer}
+          initial="initial"
+          animate="animate"
+        >
+          <MotionCard>
+            <h2 className="mb-3 text-lg font-semibold text-amber-400">
+              Judges Out ({judgesOut.length})
+            </h2>
+            <div className="max-h-40 space-y-2 overflow-y-auto pr-2">
+              {judgesOut.length > 0 ? (
+                judgesOut.map((judge) => {
+                  // Robustness: Find assignment, but render gracefully if not found
+                  const assignment = assignments.find(
+                    (a) => a.id === judge.currentAssignmentId,
+                  );
+                  return (
+                    <div
+                      key={judge.id}
+                      className="flex items-center justify-between gap-3 rounded-xl bg-zinc-800 p-2 text-sm"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`h-2 w-2 flex-shrink-0 rounded-full ${getColorForJudge(judge.id)}`}
+                        ></span>
+                        <span className="font-medium">{judge.name}</span>
+                      </div>
+                      {assignment && (
+                        <Button
+                          onClick={() => setAssignmentToScore(assignment)}
+                          size="sm"
+                          className="bg-orange-600 hover:bg-orange-500"
+                        >
+                          <PlusIcon className="size-4" />
+                          Scores
+                        </Button>
+                      )}
                     </div>
-                    {assignment && (
-                      <Button
-                        onClick={() => setAssignmentToScore(assignment)}
-                        size="sm"
-                        className="bg-emerald-600 hover:bg-emerald-500"
-                      >
-                        Scores
-                      </Button>
-                    )}
-                  </div>
-                );
-              })
-            ) : (
-              <p className="py-8 text-center text-sm text-zinc-500 italic">
-                No judges are currently out.
-              </p>
-            )}
-          </div>
-        </MotionCard>
-        <JudgeList
-          title="Available Judges"
-          judges={judgesAvailable}
-          color="text-emerald-400"
-        />
-        <JudgeList
-          title="Finished on Floor"
-          judges={judgesFinished}
-          color="text-sky-400"
-        />
-      </motion.div>
+                  );
+                })
+              ) : (
+                <p className="py-8 text-center text-sm text-zinc-500 italic">
+                  No judges are currently out.
+                </p>
+              )}
+            </div>
+          </MotionCard>
+          <JudgeList
+            title="Available Judges"
+            judges={judgesAvailable}
+            color="text-emerald-400"
+          />
+          <JudgeList
+            title="Finished on Floor"
+            judges={judgesFinished}
+            color="text-sky-400"
+          />
+        </motion.div>
+      </MotionCard>
 
-      <p className="mb-4 text-zinc-400">
-        Click on a team to see detailed scores.
-      </p>
+      <MotionCard className="mb-6 rounded-lg border border-zinc-800 bg-zinc-900/50 shadow-lg shadow-black/30">
+        <p className="mb-4 text-zinc-400">
+          Click on a team to see detailed scores.
+        </p>
 
-      <motion.div
-        className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-        variants={staggerContainer}
-        initial="initial"
-        animate="animate"
-      >
-        {floorTeams.map((team) => {
-          // --- MODIFIED: Get the assigned judges and pass them to TeamCard ---
-          const assignedJudgeIds = assignedJudgesMap.get(team.id) || [];
-          return (
-            <motion.div variants={fadeInUp} key={team.id}>
-              <TeamCard
-                team={team}
-                onClick={() => setSelectedTeam(team)}
-                assignedJudgeIds={assignedJudgeIds}
-              />
-            </motion.div>
-          );
-        })}
-      </motion.div>
+        <motion.div
+          className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          variants={staggerContainer}
+          initial="initial"
+          animate="animate"
+        >
+          {floorTeams.map((team) => {
+            // --- MODIFIED: Get the assigned judges and pass them to TeamCard ---
+            const assignedJudgeIds = assignedJudgesMap.get(team.id) || [];
+            return (
+              <motion.div variants={fadeInUp} key={team.id}>
+                <TeamCard
+                  team={team}
+                  onClick={() => setSelectedTeam(team)}
+                  assignedJudgeIds={assignedJudgeIds}
+                />
+              </motion.div>
+            );
+          })}
+        </motion.div>
+      </MotionCard>
 
       {selectedTeam && (
         <ScoreDetailModal

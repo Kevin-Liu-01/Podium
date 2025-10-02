@@ -8,6 +8,7 @@ import { Card } from "../ui/Card";
 import { CustomDropdown } from "../ui/CustomDropdown";
 import { Input } from "../ui/Input";
 import ScoreDetailModal from "../shared/ScoreDetailModal";
+import MotionCard from "../ui/MotionCard";
 
 // --- HELPER TYPES & CONSTANTS ---
 type SortKey = "averageScore" | "number" | "highScore" | "lowScore";
@@ -152,9 +153,11 @@ const ResultsView = () => {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-white">Final Results</h1>
+      <MotionCard className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <h1 className="col-span-3 text-3xl font-bold text-white">
+          Final Results
+        </h1>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="relative">
           <Search className="absolute top-1/2 left-3 size-5 -translate-y-1/2 text-zinc-500" />
           <Input
@@ -177,7 +180,7 @@ const ResultsView = () => {
           options={SORT_OPTIONS}
           placeholder="Sort by..."
         />
-      </div>
+      </MotionCard>
 
       <div className="overflow-x-auto rounded-lg border border-zinc-800">
         <table className="min-w-full divide-y divide-zinc-800 bg-zinc-900/80">

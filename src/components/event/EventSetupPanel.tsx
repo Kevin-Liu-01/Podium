@@ -105,7 +105,7 @@ const EventSetupPanel = () => {
         </div>
 
         <motion.div
-          className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4"
+          className="grid auto-rows-fr grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4"
           variants={staggerContainer}
           initial="initial"
           animate="animate"

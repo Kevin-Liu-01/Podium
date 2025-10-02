@@ -77,7 +77,7 @@ const EventCard = ({ event, onDelete }: EventCardProps) => {
   return (
     <MotionCard
       onClick={() => setCurrentEventId(event.id)}
-      className={`group relative flex h-full cursor-pointer flex-col justify-between overflow-hidden p-4 transition-all duration-300 ${
+      className={`group relative flex h-full cursor-pointer flex-col justify-between p-4 transition-all duration-300 ${
         isActive
           ? "border-2 border-orange-500/80 bg-orange-900/10 shadow-2xl shadow-orange-500/20"
           : "border-zinc-800 bg-zinc-900/50"

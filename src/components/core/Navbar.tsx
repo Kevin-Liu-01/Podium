@@ -101,7 +101,7 @@ const Navbar = () => {
       className={`fixed top-0 right-0 left-0 z-50 mx-auto max-w-7xl transition-all duration-300 ease-in-out md:top-4 md:px-4`}
     >
       <div
-        className={`group relative border-b border-zinc-700/80 bg-zinc-900/80 p-3 px-4 shadow-2xl shadow-black/50 transition-all duration-300 md:rounded-2xl md:border ${
+        className={`group relative border-b border-zinc-700/50 bg-zinc-900/70 p-3 px-4 shadow-2xl shadow-black/50 transition-all duration-300 md:rounded-2xl md:border ${
           isScrolled
             ? "backdrop-blur-xl"
             : "border-transparent bg-transparent shadow-none"
@@ -120,7 +120,7 @@ const Navbar = () => {
                 className="group flex cursor-pointer items-center space-x-2.5 px-2"
                 onClick={() => setCurrentEventId(null)}
               >
-                <Trophy className="size-6 rotate-12 text-orange-400 [filter:drop-shadow(0_0_8px_theme(colors.amber.500/0.8))] transition-transform duration-300 group-hover:scale-110 hover:rotate-90" />
+                <Trophy className="size-6 text-orange-400 [filter:drop-shadow(0_0_8px_theme(colors.amber.500/0.8))] transition-transform duration-300 group-hover:scale-110 hover:rotate-12" />
                 <h1 className="hidden bg-gradient-to-br from-white to-zinc-400 bg-clip-text py-2 text-xl font-bold text-transparent sm:block">
                   PODIUM
                 </h1>

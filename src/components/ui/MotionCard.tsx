@@ -12,7 +12,7 @@ const MotionCard = ({ children, className = "", onClick }: MotionCardProps) => (
   <motion.div
     variants={fadeInUp}
     onClick={onClick}
-    className={`group relative rounded-xl border border-white/10 bg-zinc-900/50 p-4 shadow-2xl shadow-black/40 backdrop-blur-md hover:border-white/20 ${className}`}
+    className={`group relative rounded-xl border border-white/10 p-4 shadow-2xl shadow-black/40 backdrop-blur-md hover:border-white/20 ${className}`}
   >
     <div className="absolute inset-0 -z-10 overflow-hidden rounded-xl">
       {/* --- Background & Glint Effects --- */}
