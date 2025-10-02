@@ -1,10 +1,13 @@
-import NextAuth from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import { db } from "../firebase";
-import { doc, getDoc } from "firebase/firestore";
-import type { Judge } from "../../types/types";
+// File: auth.config.ts
 
-export default NextAuth({
+import type { NextAuthConfig } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { db } from "../firebase"; // Make sure this path is correct
+import { doc, getDoc } from "firebase/firestore";
+import type { Judge } from "../../types/types"; // Make sure this path is correct
+
+// Define and export the configuration object directly
+export const authConfig = {
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -12,7 +15,7 @@ export default NextAuth({
         judgeId: { label: "Judge ID", type: "text" },
       },
       async authorize(credentials) {
-        if (!credentials?.judgeId) {
+        if (!credentials?.judgeId || typeof credentials.judgeId !== "string") {
           return null;
         }
 
@@ -21,22 +24,25 @@ export default NextAuth({
 
         if (judgeSnap.exists()) {
           const judgeData = judgeSnap.data() as Omit<Judge, "id">;
-          // Return the user object for the session
+          // Return user object if judge is found
           return { id: judgeSnap.id, name: judgeData.name };
-        } else {
-          return null;
         }
+
+        // Return null if judge is not found
+        return null;
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    // This JWT callback attaches the user's ID to the token
+    jwt({ token, user }) {
       if (user) {
         token.id = user.id;
       }
       return token;
     },
-    async session({ session, token }) {
+    // This session callback attaches the user's ID to the session object
+    session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
       }
@@ -44,7 +50,6 @@ export default NextAuth({
     },
   },
   pages: {
-    signIn: "/", // Redirect users to homepage for login
+    signIn: "/", // Redirect users to your homepage for login
   },
-  secret: process.env.NEXTAUTH_SECRET,
-});
+} satisfies NextAuthConfig; // Using "satisfies" provides type-safety
