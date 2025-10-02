@@ -21,7 +21,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${geist.variable}`}>
-      <body className="bg-zinc-950 bg-gradient-to-br from-zinc-900/80 to-zinc-950/90">
+      <body className="bg-zinc-950">
         <TRPCReactProvider>{children}</TRPCReactProvider>
       </body>
     </html>

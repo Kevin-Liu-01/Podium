@@ -5,8 +5,9 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowDownCircle } from "lucide-react";
+import { ArrowDownCircle, PlusCircle } from "lucide-react";
 import DraggableItem from "./DraggableItem";
+import { Card } from "../ui/Card";
 
 interface DroppableZoneProps {
   id: string;
@@ -19,13 +20,10 @@ const DroppableZone = ({ id, title, items }: DroppableZoneProps) => {
 
   const dropZoneStyle = isOver
     ? "border-2 border-dashed border-orange-500 bg-orange-900/20"
-    : "border-2 border-transparent bg-black/30";
+    : "border-2 border-white/5 bg-black/30";
 
   return (
-    <div
-      ref={setNodeRef}
-      className="flex h-full flex-col gap-3 rounded-xl border border-white/10 bg-zinc-900/50 p-4 shadow-lg backdrop-blur-md transition-all hover:border-orange-500/20"
-    >
+    <Card ref={setNodeRef} className="flex h-full flex-col gap-3">
       <h3 className="text-center font-bold text-zinc-300">
         {title}{" "}
         <span className="text-sm font-normal text-zinc-500">
@@ -57,13 +55,14 @@ const DroppableZone = ({ id, title, items }: DroppableZoneProps) => {
             <DraggableItem key={item.id} id={item.id} name={item.name} />
           ))}
           {items?.length === 0 && !isOver && (
-            <div className="flex h-full items-center justify-center">
+            <div className="flex h-full flex-col items-center justify-center gap-2">
+              <PlusCircle className="size-6 text-zinc-600" />
               <p className="text-xs text-zinc-500 italic">Drag judges here</p>
             </div>
           )}
         </div>
       </SortableContext>
-    </div>
+    </Card>
   );
 };
 

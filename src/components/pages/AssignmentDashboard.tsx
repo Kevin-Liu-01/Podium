@@ -11,11 +11,16 @@ import {
 import {
   SlidersHorizontal,
   UserCheck,
-  ChevronDown,
   ChevronsRight,
   History,
   XCircle,
   AlertTriangle,
+  Search,
+  User,
+  Clock,
+  CheckCircle2,
+  Loader2,
+  PlusIcon,
 } from "lucide-react";
 import { db } from "../../firebase/config";
 import { useAppContext } from "../../context/AppContext";
@@ -26,185 +31,234 @@ import { Button } from "../ui/Button";
 import { CustomDropdown } from "../ui/CustomDropdown";
 import { Input } from "../ui/Input";
 import ScoreEntryForm from "../shared/ScoreEntryForm";
-import Tooltip from "../ui/Tooltip"; // Import the Tooltip component
+import Tooltip from "../ui/Tooltip";
 
-// --- Co-located Judge Status Card Component ---
-const JudgeStatusCard = ({
+// --- [NEW] Judge Details Modal Component ---
+const JudgeDetailsModal = ({
   judge,
   details,
   assignment,
-  onToggle,
-  isExpanded,
+  onClose,
   onSwitchFloor,
-  onEnterScores,
   onRemoveAssignment,
   floors,
   currentFloorId,
+  isSwitchingFloor,
 }: {
   judge: Judge;
-  details: {
-    completedTeams: Team[];
-    currentTeams: Team[];
-    isFinished: boolean;
-  };
+  details: { completedTeams: Team[]; currentTeams: Team[] };
   assignment: Assignment | undefined;
-  onToggle: () => void;
-  isExpanded: boolean;
+  onClose: () => void;
   onSwitchFloor: (judgeId: string, newFloorId: string) => void;
-  onEnterScores: (assignment: Assignment) => void;
   onRemoveAssignment: (assignmentId: string, judgeId: string) => void;
   floors: Floor[];
   currentFloorId: string;
+  isSwitchingFloor: boolean;
 }) => {
   const [targetFloorId, setTargetFloorId] = useState("");
 
-  const statusMap = {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.9, y: 20 }}
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-lg rounded-xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl"
+      >
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="text-xl font-bold">{judge.name}</h3>
+            <p className="text-sm text-zinc-400">Detailed View</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-zinc-500 transition-colors hover:text-white"
+          >
+            <XCircle className="size-6" />
+          </button>
+        </div>
+
+        <div className="mt-6 space-y-6 border-t border-zinc-800 pt-6">
+          {/* Current Assignment */}
+          {assignment && (
+            <div>
+              <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-300">
+                <ChevronsRight className="size-4 text-amber-400" />
+                Currently Evaluating
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {details.currentTeams.map((t) => (
+                  <span
+                    key={t.id}
+                    className="rounded bg-amber-900/50 px-2 py-1 text-xs font-medium text-amber-300"
+                  >
+                    {t.name}
+                  </span>
+                ))}
+              </div>
+              <div className="mt-4">
+                <Tooltip
+                  content="Permanently removes this active assignment. This cannot be undone."
+                  position="right"
+                >
+                  <Button
+                    onClick={() => onRemoveAssignment(assignment.id, judge.id)}
+                    variant="destructive"
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <XCircle className="size-4" />
+                    Cancel Assignment
+                  </Button>
+                </Tooltip>
+              </div>
+            </div>
+          )}
+
+          {/* Completed Teams */}
+          {details?.completedTeams.length > 0 && (
+            <div>
+              <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-300">
+                <History className="size-4 text-emerald-400" />
+                Completed Teams ({details.completedTeams.length})
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {details.completedTeams.map((t) => (
+                  <span
+                    key={t.id}
+                    className="rounded bg-emerald-900/50 px-2 py-1 text-xs font-medium text-emerald-300"
+                  >
+                    {t.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Floor Switching Logic */}
+          {!assignment && (
+            <div>
+              <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-300">
+                <ChevronsRight className="size-4 text-sky-400" />
+                Move Judge
+              </h4>
+              {judge.hasSwitchedFloors ? (
+                <Tooltip
+                  content="This judge has already moved from their original floor."
+                  position="right"
+                >
+                  <span className="rounded-full bg-zinc-700 px-3 py-1 text-sm font-semibold text-zinc-300">
+                    Already Switched Floors
+                  </span>
+                </Tooltip>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <CustomDropdown
+                    value={targetFloorId}
+                    onChange={setTargetFloorId}
+                    options={floors
+                      .filter((f) => f.id !== currentFloorId)
+                      .map((f) => ({ value: f.id, label: f.name }))}
+                    placeholder="Select destination..."
+                  />
+                  <Tooltip
+                    content="Move this judge to the selected floor. This can only be done once."
+                    position="right"
+                  >
+                    <div>
+                      <Button
+                        onClick={() => onSwitchFloor(judge.id, targetFloorId)}
+                        disabled={!targetFloorId || isSwitchingFloor}
+                        size="sm"
+                        className="flex w-32 items-center justify-center bg-sky-600 hover:bg-sky-500"
+                      >
+                        {isSwitchingFloor ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          "Switch Floor"
+                        )}
+                      </Button>
+                    </div>
+                  </Tooltip>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+// --- [REFACTORED] Judge List Item Component ---
+const JudgeListItem = ({
+  judge,
+  status,
+  onViewDetails,
+  onEnterScores,
+}: {
+  judge: Judge;
+  status: "busy" | "assignable" | "finished";
+  onViewDetails: () => void;
+  onEnterScores: () => void;
+}) => {
+  const statusConfig = {
     busy: {
-      color: "text-amber-400",
-      label: `Assigned ${details.currentTeams.length} teams`,
+      Icon: Clock,
+      label: "Busy",
+      className: "bg-amber-500/10 text-amber-400 border-amber-500/20",
     },
-    assignable: { color: "text-emerald-400", label: "Ready to judge" },
+    assignable: {
+      Icon: CheckCircle2,
+      label: "Assignable",
+      className: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    },
     finished: {
-      color: "text-sky-400",
-      label: "No assignments left on this floor",
+      Icon: User,
+      label: "Finished",
+      className: "bg-sky-500/10 text-sky-400 border-sky-500/20",
     },
   };
-  const status = judge.currentAssignmentId
-    ? "busy"
-    : details.isFinished
-      ? "finished"
-      : "assignable";
+
+  const { Icon, label, className } = statusConfig[status];
 
   return (
-    <div className="rounded-lg bg-zinc-800/80 p-3 transition-colors">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex-1">
-          <p className="font-bold">{judge.name}</p>
-          <p className={`text-sm ${statusMap[status].color}`}>
-            {statusMap[status].label}
-          </p>
+    <div className="flex items-center gap-3 rounded-lg border border-zinc-700/50 bg-zinc-800/80 p-3">
+      <div className="flex-1">
+        <p className="font-bold">{judge.name}</p>
+        <div
+          className={`mt-1 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${className}`}
+        >
+          <Icon className="size-3" />
+          {label}
         </div>
-        {status === "busy" && assignment && (
-          <Tooltip content="Enter scores for this assignment">
+      </div>
+      <div className="flex items-center gap-2">
+        {status === "busy" && (
+          <Tooltip content="Enter scores for this assignment" position="left">
             <Button
-              onClick={() => onEnterScores(assignment)}
-              size="md"
-              className="flex-shrink-0 bg-emerald-600 hover:bg-emerald-500"
+              onClick={onEnterScores}
+              size="sm"
+              className="bg-orange-600 hover:bg-orange-500"
             >
+              <PlusIcon className="size-4" />
               Enter Scores
             </Button>
           </Tooltip>
         )}
-        <Tooltip content={isExpanded ? "Hide Details" : "Show Details"}>
-          <button
-            onClick={onToggle}
-            className="flex-shrink-0 p-1 text-zinc-400 hover:text-white"
-          >
-            <ChevronDown
-              className={`size-5 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-            />
-          </button>
+        <Tooltip content="View judge details" position="left">
+          <Button onClick={onViewDetails} variant="secondary" size="sm">
+            <SlidersHorizontal className="size-4" />
+          </Button>
         </Tooltip>
       </div>
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden"
-          >
-            <div className="mt-3 border-t border-zinc-700 pt-3">
-              {status === "busy" && assignment && (
-                <>
-                  <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold text-zinc-400">
-                    <ChevronsRight className="size-4 text-amber-400" />
-                    Currently Evaluating
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {details.currentTeams.map((t) => (
-                      <span
-                        key={t.id}
-                        className="rounded bg-amber-900/50 px-2 py-1 text-xs font-medium text-amber-300"
-                      >
-                        {t.name}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="mt-4">
-                    <Tooltip content="Permanently removes this active assignment. This cannot be undone.">
-                      <Button
-                        onClick={() =>
-                          onRemoveAssignment(assignment.id, judge.id)
-                        }
-                        variant="destructive"
-                        size="sm"
-                        className="flex items-center gap-2"
-                      >
-                        <XCircle className="size-4" />
-                        Cancel Assignment
-                      </Button>
-                    </Tooltip>
-                  </div>
-                </>
-              )}
-              {details.completedTeams.length > 0 && (
-                <>
-                  <h4 className="mt-3 mb-2 flex items-center gap-2 text-xs font-semibold text-zinc-400">
-                    <History className="size-4 text-emerald-400" />
-                    Completed Teams
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {details.completedTeams.map((t) => (
-                      <span
-                        key={t.id}
-                        className="rounded bg-emerald-900/50 px-2 py-1 text-xs font-medium text-emerald-300"
-                      >
-                        {t.name}
-                      </span>
-                    ))}
-                  </div>
-                </>
-              )}
-              {status === "finished" && (
-                <div className="mt-4">
-                  {judge.hasSwitchedFloors ? (
-                    <Tooltip content="This judge has already moved from their original floor.">
-                      <span className="rounded-full bg-zinc-700 px-3 py-1 text-xs font-semibold text-zinc-300">
-                        Switched
-                      </span>
-                    </Tooltip>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <CustomDropdown
-                        value={targetFloorId}
-                        onChange={setTargetFloorId}
-                        options={floors
-                          .filter((f) => f.id !== currentFloorId)
-                          .map((f) => ({ value: f.id, label: f.name }))}
-                        placeholder="Move to..."
-                      />
-                      <Tooltip content="Move this judge to the selected floor. This can only be done once.">
-                        <div>
-                          <Button
-                            onClick={() =>
-                              onSwitchFloor(judge.id, targetFloorId)
-                            }
-                            disabled={!targetFloorId}
-                            size="sm"
-                          >
-                            Switch Floor
-                          </Button>
-                        </div>
-                      </Tooltip>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };
@@ -214,29 +268,49 @@ const AssignmentDashboard = () => {
   const { judges, teams, assignments, floors, currentEvent, showToast } =
     useAppContext();
 
+  // Component State
   const [mode, setMode] = useState<"auto" | "manual">("auto");
   const [assignmentToScore, setAssignmentToScore] = useState<Assignment | null>(
     null,
   );
   const [isAssigning, setIsAssigning] = useState(false);
   const [selectedFloorId, setSelectedFloorId] = useState("");
-  const [expandedJudgeId, setExpandedJudgeId] = useState<string | null>(null);
 
+  // Auto Mode State
   const [autoSelectedJudgeIds, setAutoSelectedJudgeIds] = useState<string[]>(
     [],
   );
+
+  // Manual Mode State
   const [manualSelectedJudgeId, setManualSelectedJudgeId] = useState("");
   const [manualSelectedTeamIds, setManualSelectedTeamIds] = useState<string[]>(
     [],
   );
   const [teamSearch, setTeamSearch] = useState("");
 
+  // Judge Status UI State
+  const [judgeSearch, setJudgeSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "busy" | "assignable" | "finished"
+  >("all");
+  const [viewingJudge, setViewingJudge] = useState<Judge | null>(null);
+  const [isSwitchingFloor, setIsSwitchingFloor] = useState(false); // <-- [FIX] State for loading indicator
+
+  // Memoized data maps for performance
   const teamMap = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
+  const assignmentMap = useMemo(
+    () => new Map(assignments.map((a) => [a.id, a])),
+    [assignments],
+  );
 
   const judgeDetailsMap = useMemo(() => {
     const details = new Map<
       string,
-      { completedTeams: Team[]; currentTeams: Team[]; isFinished: boolean }
+      {
+        completedTeams: Team[];
+        currentTeams: Team[];
+        status: "busy" | "assignable" | "finished";
+      }
     >();
     if (!selectedFloorId) return details;
 
@@ -270,32 +344,50 @@ const AssignmentDashboard = () => {
           }
         }
       }
+      const isFinished = !isPossible && completedIds.size > 0;
+      const status = judge.currentAssignmentId
+        ? "busy"
+        : isFinished
+          ? "finished"
+          : "assignable";
 
       details.set(judge.id, {
+        status,
         completedTeams: Array.from(completedIds)
           .map((id) => (id ? teamMap.get(id) : undefined))
           .filter((t): t is Team => !!t),
         currentTeams: currentIds
           .map((id) => (id ? teamMap.get(id) : undefined))
           .filter((t): t is Team => !!t),
-        isFinished: !isPossible && completedIds.size > 0,
       });
     }
     return details;
   }, [judges, teams, assignments, selectedFloorId, teamMap]);
 
-  const { busyJudges, assignableJudges, finishedJudges } = useMemo(() => {
-    const floorJudges = judges.filter((j) => j.floorId === selectedFloorId);
+  const { assignableJudges, judgesOnFloor } = useMemo(() => {
+    const onFloor = judges.filter((j) => j.floorId === selectedFloorId);
     return {
-      busyJudges: floorJudges.filter((j) => j.currentAssignmentId),
-      assignableJudges: floorJudges.filter(
-        (j) => !j.currentAssignmentId && !judgeDetailsMap.get(j.id)?.isFinished,
-      ),
-      finishedJudges: floorJudges.filter(
-        (j) => !j.currentAssignmentId && judgeDetailsMap.get(j.id)?.isFinished,
+      judgesOnFloor: onFloor,
+      assignableJudges: onFloor.filter(
+        (j) => judgeDetailsMap.get(j.id)?.status === "assignable",
       ),
     };
   }, [judges, selectedFloorId, judgeDetailsMap]);
+
+  const filteredJudges = useMemo(() => {
+    return judgesOnFloor
+      .filter((judge) => {
+        const nameMatch = judge.name
+          .toLowerCase()
+          .includes(judgeSearch.toLowerCase());
+        const details = judgeDetailsMap.get(judge.id);
+        const statusMatch =
+          statusFilter === "all" ||
+          (details && details.status === statusFilter);
+        return nameMatch && statusMatch;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [judgesOnFloor, judgeSearch, statusFilter, judgeDetailsMap]);
 
   const manualModeTeams = useMemo(() => {
     if (!selectedFloorId) return [];
@@ -317,6 +409,7 @@ const AssignmentDashboard = () => {
     );
   }, [assignments, manualSelectedJudgeId]);
 
+  // Effects for syncing state
   useEffect(() => {
     if (floors.length > 0) {
       const currentFloorExists = floors.some((f) => f.id === selectedFloorId);
@@ -347,6 +440,7 @@ const AssignmentDashboard = () => {
     setManualSelectedTeamIds([]);
   }, [manualSelectedJudgeId]);
 
+  // Handler functions
   const handleToggleJudge = (judgeId: string) =>
     setAutoSelectedJudgeIds((p) =>
       p.includes(judgeId) ? p.filter((id) => id !== judgeId) : [...p, judgeId],
@@ -363,6 +457,7 @@ const AssignmentDashboard = () => {
     );
   };
 
+  // --- [FIXED] handleSwitchFloor function ---
   const handleSwitchFloor = async (judgeId: string, newFloorId: string) => {
     const judge = judges.find((j) => j.id === judgeId);
     if (!currentEvent || !judge) return;
@@ -371,6 +466,7 @@ const AssignmentDashboard = () => {
     if (!newFloorId)
       return showToast("Please select a destination floor.", "error");
 
+    setIsSwitchingFloor(true);
     const judgeRef = doc(db, `events/${currentEvent.id}/judges`, judgeId);
     try {
       await updateDoc(judgeRef, {
@@ -378,8 +474,11 @@ const AssignmentDashboard = () => {
         hasSwitchedFloors: true,
       });
       showToast(`${judge.name} moved successfully.`, "success");
+      setViewingJudge(null); // <-- Close modal on success
     } catch (error) {
       showToast("Failed to switch floor.", "error");
+    } finally {
+      setIsSwitchingFloor(false); // <-- Stop loading indicator
     }
   };
 
@@ -387,7 +486,6 @@ const AssignmentDashboard = () => {
     assignmentId: string,
     judgeId: string,
   ) => {
-    // ... (This function uses window.confirm, which is fine for destructive actions)
     if (!currentEvent) return;
     if (
       !window.confirm(
@@ -411,6 +509,7 @@ const AssignmentDashboard = () => {
 
       await batch.commit();
       showToast("Assignment successfully removed.", "success");
+      setViewingJudge(null);
     } catch (error) {
       console.error("Failed to remove assignment:", error);
       showToast("An error occurred while removing the assignment.", "error");
@@ -595,6 +694,7 @@ const AssignmentDashboard = () => {
     }
   };
 
+  // Render Logic
   if (!currentEvent) {
     return (
       <MotionCard>
@@ -617,319 +717,357 @@ const AssignmentDashboard = () => {
       />
     );
 
-  return (
-    <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-      {/* --- LEFT COLUMN: CONTROLS --- */}
-      <div className="flex flex-col gap-6">
-        <MotionCard>
-          <label className="mb-2 block font-semibold">
-            Viewing & Assigning on Floor
-          </label>
-          <CustomDropdown
-            value={selectedFloorId}
-            onChange={setSelectedFloorId}
-            options={floors.map((f) => ({ value: f.id, label: f.name }))}
-            placeholder={
-              floors.length > 0
-                ? "Select a floor to manage"
-                : "No floors created"
-            }
-            disabled={floors.length === 0}
-          />
-        </MotionCard>
+  const StatusFilterButton = ({
+    value,
+    label,
+    count,
+  }: {
+    value: typeof statusFilter;
+    label: string;
+    count: number;
+  }) => (
+    <button
+      onClick={() => setStatusFilter(value)}
+      className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+        statusFilter === value
+          ? "bg-orange-600 text-white"
+          : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+      }`}
+    >
+      {label} <span className="text-xs opacity-70">({count})</span>
+    </button>
+  );
 
-        <div className="flex border-b border-zinc-700">
-          <Tooltip content="Automatically assign judges to teams based on algorithm.">
-            <button
-              onClick={() => setMode("auto")}
-              className={`flex w-full items-center justify-center gap-2 px-4 py-2 text-sm font-semibold transition-colors ${mode === "auto" ? "border-b-2 border-orange-500 text-orange-500" : "text-zinc-400 hover:text-white"}`}
-            >
-              <SlidersHorizontal className="size-4" /> Auto Generator
-            </button>
-          </Tooltip>
-          <Tooltip content="Manually select a judge and team(s) to create an assignment.">
-            <button
-              onClick={() => setMode("manual")}
-              className={`flex w-full items-center justify-center gap-2 px-4 py-2 text-sm font-semibold transition-colors ${mode === "manual" ? "border-b-2 border-orange-500 text-orange-500" : "text-zinc-400 hover:text-white"}`}
-            >
-              <UserCheck className="size-4" /> Manual Assignment
-            </button>
-          </Tooltip>
-        </div>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={mode}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.2 }}
-          >
-            {mode === "auto" && (
-              <Card>
-                <h2 className="mb-4 text-xl font-bold text-zinc-100">
-                  Auto-Assignment Generator
-                </h2>
-                <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 p-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <label className="font-semibold text-zinc-300">
-                      Select Assignable Judges ({assignableJudges.length})
-                    </label>
-                    <Tooltip
-                      content={
-                        autoSelectedJudgeIds.length === assignableJudges.length
-                          ? "Clear selection"
-                          : "Select all assignable judges"
-                      }
-                    >
-                      <button
-                        onClick={toggleSelectAllJudges}
-                        className="rounded bg-zinc-600 px-2 py-1 text-xs hover:bg-zinc-500"
-                      >
-                        {autoSelectedJudgeIds.length === assignableJudges.length
-                          ? "Deselect All"
-                          : "Select All"}
-                      </button>
-                    </Tooltip>
-                  </div>
-                  <div className="max-h-48 space-y-1 overflow-y-auto pr-1">
-                    {assignableJudges.length > 0 ? (
-                      assignableJudges.map((j) => (
-                        <label
-                          key={j.id}
-                          className="flex cursor-pointer items-center space-x-3 rounded p-2 transition-colors hover:bg-zinc-700"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={autoSelectedJudgeIds.includes(j.id)}
-                            onChange={() => handleToggleJudge(j.id)}
-                            className="size-4 cursor-pointer rounded border-zinc-600 bg-zinc-900 text-orange-600 focus:ring-2 focus:ring-orange-500/50"
-                          />
-                          <span className="text-sm font-medium">{j.name}</span>
+  return (
+    <>
+      <AnimatePresence>
+        {viewingJudge && (
+          <JudgeDetailsModal
+            judge={viewingJudge}
+            details={judgeDetailsMap.get(viewingJudge.id)!}
+            assignment={
+              viewingJudge.currentAssignmentId
+                ? assignmentMap.get(viewingJudge.currentAssignmentId)
+                : undefined
+            }
+            onClose={() => setViewingJudge(null)}
+            onSwitchFloor={handleSwitchFloor}
+            onRemoveAssignment={handleRemoveAssignment}
+            floors={floors}
+            currentFloorId={selectedFloorId}
+            isSwitchingFloor={isSwitchingFloor}
+          />
+        )}
+      </AnimatePresence>
+
+      <div className="grid h-full grid-cols-1 gap-8 lg:grid-cols-2">
+        {/* --- LEFT COLUMN: CONTROLS --- */}
+        <div className="flex flex-col gap-6">
+          <MotionCard className="z-20">
+            <label className="mb-2 block font-semibold">
+              Viewing & Assigning on Floor
+            </label>
+            <CustomDropdown
+              value={selectedFloorId}
+              onChange={setSelectedFloorId}
+              options={floors.map((f) => ({ value: f.id, label: f.name }))}
+              placeholder={
+                floors.length > 0
+                  ? "Select a floor to manage"
+                  : "No floors created"
+              }
+              disabled={floors.length === 0}
+            />
+          </MotionCard>
+          <Card className="z-10 flex h-full flex-col">
+            <div className="flex border-b border-zinc-700">
+              <Tooltip content="Automatically assign judges to teams based on algorithm.">
+                <button
+                  onClick={() => setMode("auto")}
+                  className={`flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-semibold transition-colors ${mode === "auto" ? "border-b-2 border-orange-500 text-orange-500" : "text-zinc-400 hover:text-white"}`}
+                >
+                  <SlidersHorizontal className="size-4" /> Auto Generator
+                </button>
+              </Tooltip>
+              <Tooltip content="Manually select a judge and team(s) to create an assignment.">
+                <button
+                  onClick={() => setMode("manual")}
+                  className={`flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-semibold transition-colors ${mode === "manual" ? "border-b-2 border-orange-500 text-orange-500" : "text-zinc-400 hover:text-white"}`}
+                >
+                  <UserCheck className="size-4" /> Manual Assignment
+                </button>
+              </Tooltip>
+            </div>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={mode}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="flex-grow pt-4"
+              >
+                {mode === "auto" && (
+                  <div className="flex h-full flex-col">
+                    <div className="flex-grow rounded-lg border border-zinc-700 bg-zinc-800/50 p-3">
+                      <div className="mb-2 flex items-center justify-between">
+                        <label className="font-semibold text-zinc-300">
+                          Assignable Judges ({assignableJudges.length})
                         </label>
-                      ))
-                    ) : (
-                      <p className="pt-4 text-center text-xs text-zinc-500 italic">
-                        No assignable judges on this floor.
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <Tooltip content="Automatically finds and assigns the best group of 5 teams to each selected judge.">
-                  <div className="mt-4 w-full">
-                    <Button
-                      onClick={generateAssignments}
-                      disabled={
-                        !autoSelectedJudgeIds.length ||
-                        !selectedFloorId ||
-                        isAssigning
-                      }
-                      className="w-full bg-gradient-to-br from-orange-500 to-orange-600 transition-all duration-150 hover:from-orange-600 hover:to-orange-700"
-                    >
-                      {isAssigning
-                        ? "Assigning..."
-                        : `Generate & Assign (${autoSelectedJudgeIds.length})`}
-                    </Button>
-                  </div>
-                </Tooltip>
-              </Card>
-            )}
-            {mode === "manual" && (
-              <Card>
-                <h2 className="mb-4 text-xl font-bold text-zinc-100">
-                  Manual Assignment
-                </h2>
-                <div className="space-y-4">
-                  <div>
-                    <label className="mb-2 block font-semibold">
-                      Assign Judge
-                    </label>
-                    <CustomDropdown
-                      value={manualSelectedJudgeId}
-                      onChange={setManualSelectedJudgeId}
-                      options={assignableJudges.map((j) => ({
-                        value: j.id,
-                        label: j.name,
-                      }))}
-                      placeholder="Select a judge"
-                    />
-                  </div>
-                  <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 p-3">
-                    <div className="mb-3">
-                      <label className="mb-2 block font-semibold text-zinc-300">
-                        Select Teams ({manualSelectedTeamIds.length} selected)
-                      </label>
-                      <Input
-                        type="text"
-                        placeholder="Search teams..."
-                        value={teamSearch}
-                        onChange={(e) => setTeamSearch(e.target.value)}
-                      />
-                    </div>
-                    <div className="max-h-48 space-y-1 overflow-y-auto pr-1">
-                      {manualModeTeams.map((team) => {
-                        const hasJudged = manualJudgedTeamIds.has(team.id);
-                        return (
-                          <label
-                            key={team.id}
-                            className={`flex items-center justify-between rounded p-2 transition-colors ${hasJudged ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-zinc-700"}`}
+                        <Tooltip
+                          content={
+                            autoSelectedJudgeIds.length ===
+                            assignableJudges.length
+                              ? "Clear selection"
+                              : "Select all assignable judges"
+                          }
+                        >
+                          <button
+                            onClick={toggleSelectAllJudges}
+                            className="rounded bg-zinc-600 px-2 py-1 text-xs font-semibold hover:bg-zinc-500"
                           >
-                            <div className="flex items-center space-x-3">
+                            {autoSelectedJudgeIds.length ===
+                            assignableJudges.length
+                              ? "Deselect All"
+                              : "Select All"}
+                          </button>
+                        </Tooltip>
+                      </div>
+                      <div className="custom-scrollbar max-h-48 space-y-1 overflow-y-auto pr-1">
+                        {assignableJudges.length > 0 ? (
+                          assignableJudges.map((j) => (
+                            <label
+                              key={j.id}
+                              className="flex cursor-pointer items-center space-x-3 rounded p-2 transition-colors hover:bg-zinc-700"
+                            >
                               <input
                                 type="checkbox"
-                                checked={manualSelectedTeamIds.includes(
-                                  team.id,
-                                )}
-                                onChange={() => handleToggleTeam(team.id)}
-                                disabled={hasJudged}
-                                className="size-4 cursor-pointer rounded border-zinc-600 bg-zinc-900 text-orange-600 focus:ring-2 focus:ring-orange-500/50 disabled:cursor-not-allowed"
+                                checked={autoSelectedJudgeIds.includes(j.id)}
+                                onChange={() => handleToggleJudge(j.id)}
+                                className="size-4 cursor-pointer rounded border-zinc-600 bg-zinc-900 text-orange-600 focus:ring-2 focus:ring-orange-500/50"
                               />
                               <span className="text-sm font-medium">
-                                {team.name}
+                                {j.name}
                               </span>
-                            </div>
-                            {hasJudged ? (
-                              <Tooltip content="This judge has already submitted a review for this team.">
-                                <span className="text-xs text-zinc-400">
-                                  Judged
-                                </span>
-                              </Tooltip>
-                            ) : (
-                              <span className="text-xs text-zinc-400">
-                                {`Reviews: ${team.reviewedBy.length}`}
-                              </span>
-                            )}
-                          </label>
-                        );
-                      })}
+                            </label>
+                          ))
+                        ) : (
+                          <p className="pt-4 text-center text-sm text-zinc-500 italic">
+                            No assignable judges on this floor.
+                          </p>
+                        )}
+                      </div>
                     </div>
+                    <Tooltip content="Automatically finds and assigns the best group of 5 teams to each selected judge.">
+                      <div className="mt-4 w-full">
+                        <Button
+                          onClick={generateAssignments}
+                          disabled={
+                            !autoSelectedJudgeIds.length ||
+                            !selectedFloorId ||
+                            isAssigning
+                          }
+                          className="w-full bg-gradient-to-br from-orange-500 to-orange-600 text-base transition-all duration-150 hover:from-orange-600 hover:to-orange-700"
+                        >
+                          {isAssigning ? (
+                            <Loader2 className="size-5 animate-spin" />
+                          ) : (
+                            `Generate & Assign (${autoSelectedJudgeIds.length})`
+                          )}
+                        </Button>
+                      </div>
+                    </Tooltip>
                   </div>
-                  <Tooltip content="Creates a new assignment with the selected judge and team(s).">
-                    <div className="w-full">
-                      <Button
-                        onClick={createManualAssignment}
-                        disabled={
-                          !manualSelectedJudgeId ||
-                          manualSelectedTeamIds.length === 0 ||
-                          isAssigning
-                        }
-                        className="w-full bg-gradient-to-br from-indigo-500 to-indigo-600"
-                      >
-                        {isAssigning
-                          ? "Assigning..."
-                          : `Create Manual Assignment`}
-                      </Button>
+                )}
+                {mode === "manual" && (
+                  <div className="flex h-full flex-col gap-4">
+                    <div>
+                      <label className="mb-2 block font-semibold">
+                        Assign Judge
+                      </label>
+                      <CustomDropdown
+                        value={manualSelectedJudgeId}
+                        onChange={setManualSelectedJudgeId}
+                        options={assignableJudges.map((j) => ({
+                          value: j.id,
+                          label: j.name,
+                        }))}
+                        placeholder="Select a judge"
+                      />
                     </div>
-                  </Tooltip>
-                </div>
-              </Card>
-            )}
-          </motion.div>
-        </AnimatePresence>
+                    <div className="flex-grow rounded-lg border border-zinc-700 bg-zinc-800/50 p-3">
+                      <div className="mb-3">
+                        <label className="mb-2 block font-semibold text-zinc-300">
+                          Select Teams ({manualSelectedTeamIds.length} selected)
+                        </label>
+                        <Input
+                          type="text"
+                          placeholder="Search teams..."
+                          value={teamSearch}
+                          onChange={(e) => setTeamSearch(e.target.value)}
+                        />
+                      </div>
+                      <div className="custom-scrollbar max-h-48 space-y-1 overflow-y-auto pr-1">
+                        {manualModeTeams.map((team) => {
+                          const hasJudged = manualJudgedTeamIds.has(team.id);
+                          return (
+                            <label
+                              key={team.id}
+                              className={`flex items-center justify-between rounded p-2 transition-colors ${hasJudged ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-zinc-700"}`}
+                            >
+                              <div className="flex items-center space-x-3">
+                                <input
+                                  type="checkbox"
+                                  checked={manualSelectedTeamIds.includes(
+                                    team.id,
+                                  )}
+                                  onChange={() => handleToggleTeam(team.id)}
+                                  disabled={hasJudged}
+                                  className="size-4 cursor-pointer rounded border-zinc-600 bg-zinc-900 text-orange-600 focus:ring-2 focus:ring-orange-500/50 disabled:cursor-not-allowed"
+                                />
+                                <span className="text-sm font-medium">
+                                  {team.name}
+                                </span>
+                              </div>
+                              {hasJudged ? (
+                                <Tooltip content="This judge has already submitted a review for this team.">
+                                  <span className="text-xs text-zinc-400">
+                                    Judged
+                                  </span>
+                                </Tooltip>
+                              ) : (
+                                <span className="text-xs text-zinc-400">
+                                  {`Reviews: ${team.reviewedBy.length}`}
+                                </span>
+                              )}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <Tooltip content="Creates a new assignment with the selected judge and team(s).">
+                      <div className="w-full">
+                        <Button
+                          onClick={createManualAssignment}
+                          disabled={
+                            !manualSelectedJudgeId ||
+                            manualSelectedTeamIds.length === 0 ||
+                            isAssigning
+                          }
+                          className="w-full bg-gradient-to-br from-indigo-500 to-indigo-600 text-base"
+                        >
+                          {isAssigning ? (
+                            <Loader2 className="size-5 animate-spin" />
+                          ) : (
+                            `Create Manual Assignment`
+                          )}
+                        </Button>
+                      </div>
+                    </Tooltip>
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </Card>
+        </div>
+
+        {/* --- [IMPROVED] RIGHT COLUMN: JUDGE STATUS --- */}
+        <MotionCard className="flex h-full max-h-full flex-col">
+          <div className="pb-0">
+            <h2 className="text-xl font-bold">Judge Status Dashboard</h2>
+            <div className="mt-4 space-y-3">
+              <div className="relative">
+                <Search className="absolute top-1/2 left-3 size-5 -translate-y-1/2 text-zinc-500" />
+                <Input
+                  type="text"
+                  placeholder="Search by judge name..."
+                  value={judgeSearch}
+                  onChange={(e) => setJudgeSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusFilterButton
+                  value="all"
+                  label="All"
+                  count={judgesOnFloor.length}
+                />
+                <StatusFilterButton
+                  value="busy"
+                  label="Busy"
+                  count={
+                    judgesOnFloor.filter(
+                      (j) => judgeDetailsMap.get(j.id)?.status === "busy",
+                    ).length
+                  }
+                />
+                <StatusFilterButton
+                  value="assignable"
+                  label="Assignable"
+                  count={assignableJudges.length}
+                />
+                <StatusFilterButton
+                  value="finished"
+                  label="Finished"
+                  count={
+                    judgesOnFloor.filter(
+                      (j) => judgeDetailsMap.get(j.id)?.status === "finished",
+                    ).length
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="custom-scrollbar mt-4 h-full flex-1 space-y-2 overflow-y-auto">
+            <AnimatePresence>
+              {filteredJudges.length > 0 ? (
+                filteredJudges.map((judge) => {
+                  const details = judgeDetailsMap.get(judge.id);
+                  if (!details) return null;
+                  return (
+                    <motion.div
+                      key={judge.id}
+                      layout
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <JudgeListItem
+                        judge={judge}
+                        status={details.status}
+                        onViewDetails={() => setViewingJudge(judge)}
+                        onEnterScores={() => {
+                          const assignment = assignmentMap.get(
+                            judge.currentAssignmentId!,
+                          );
+                          if (assignment) setAssignmentToScore(assignment);
+                        }}
+                      />
+                    </motion.div>
+                  );
+                })
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex h-40 flex-col items-center justify-center text-center"
+                >
+                  <XCircle className="size-8 text-zinc-600" />
+                  <p className="mt-2 font-semibold text-zinc-400">
+                    No Judges Found
+                  </p>
+                  <p className="text-sm text-zinc-500">
+                    Try adjusting your search or filter.
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </MotionCard>
       </div>
-
-      {/* --- RIGHT COLUMN: JUDGE STATUS --- */}
-      <MotionCard className="custom-scrollbar max-h-[85vh] overflow-y-auto p-4">
-        <h2 className="sticky top-0 z-10 mb-4 bg-zinc-900/50 py-2 text-xl font-bold backdrop-blur-sm">
-          Judge Status Dashboard
-        </h2>
-
-        <div className="mb-6">
-          <h3 className="mb-3 text-lg font-semibold text-amber-400">
-            Busy ({busyJudges.length})
-          </h3>
-          <div className="space-y-2">
-            {busyJudges.map((judge) => {
-              const assignment = assignments.find(
-                (a) => a.id === judge.currentAssignmentId,
-              );
-              const details = judgeDetailsMap.get(judge.id);
-              if (!details) return null;
-              return (
-                <JudgeStatusCard
-                  key={judge.id}
-                  judge={judge}
-                  details={details}
-                  assignment={assignment}
-                  isExpanded={expandedJudgeId === judge.id}
-                  onToggle={() =>
-                    setExpandedJudgeId((p) =>
-                      p === judge.id ? null : judge.id,
-                    )
-                  }
-                  onEnterScores={setAssignmentToScore}
-                  onSwitchFloor={handleSwitchFloor}
-                  onRemoveAssignment={handleRemoveAssignment}
-                  floors={floors}
-                  currentFloorId={selectedFloorId}
-                />
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="mb-6">
-          <h3 className="mb-3 text-lg font-semibold text-emerald-400">
-            Assignable ({assignableJudges.length})
-          </h3>
-          <div className="space-y-2">
-            {assignableJudges.map((judge) => {
-              const details = judgeDetailsMap.get(judge.id);
-              if (!details) return null;
-              return (
-                <JudgeStatusCard
-                  key={judge.id}
-                  judge={judge}
-                  details={details}
-                  assignment={undefined}
-                  isExpanded={expandedJudgeId === judge.id}
-                  onToggle={() =>
-                    setExpandedJudgeId((p) =>
-                      p === judge.id ? null : judge.id,
-                    )
-                  }
-                  onEnterScores={setAssignmentToScore}
-                  onSwitchFloor={handleSwitchFloor}
-                  onRemoveAssignment={handleRemoveAssignment}
-                  floors={floors}
-                  currentFloorId={selectedFloorId}
-                />
-              );
-            })}
-          </div>
-        </div>
-
-        <div>
-          <h3 className="mb-3 text-lg font-semibold text-sky-400">
-            Finished ({finishedJudges.length})
-          </h3>
-          <div className="space-y-2">
-            {finishedJudges.map((judge) => {
-              const details = judgeDetailsMap.get(judge.id);
-              if (!details) return null;
-              return (
-                <JudgeStatusCard
-                  key={judge.id}
-                  judge={judge}
-                  details={details}
-                  assignment={undefined}
-                  isExpanded={expandedJudgeId === judge.id}
-                  onToggle={() =>
-                    setExpandedJudgeId((p) =>
-                      p === judge.id ? null : judge.id,
-                    )
-                  }
-                  onEnterScores={setAssignmentToScore}
-                  onSwitchFloor={handleSwitchFloor}
-                  onRemoveAssignment={handleRemoveAssignment}
-                  floors={floors}
-                  currentFloorId={selectedFloorId}
-                />
-              );
-            })}
-          </div>
-        </div>
-      </MotionCard>
-    </div>
+    </>
   );
 };
 

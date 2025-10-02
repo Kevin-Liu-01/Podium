@@ -95,9 +95,9 @@ const EventSetupPanel = () => {
   return (
     <>
       <div className="space-y-12">
-        <div className="mt-4 text-center">
+        <div className="mt-8 text-center">
           <h1 className="bg-gradient-to-br from-white via-zinc-300 to-zinc-500 bg-clip-text text-5xl font-bold tracking-tight text-transparent md:text-6xl">
-            Event Control Deck
+            Podium Setup
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-lg text-zinc-400">
             Launch a new event or manage an existing hackathon event.
@@ -141,7 +141,10 @@ const EventSetupPanel = () => {
                   }
                   required
                 />
-                <Button type="submit" className="w-full">
+                <Button
+                  type="submit"
+                  className="w-full bg-gradient-to-br from-orange-500 to-orange-600 shadow-lg shadow-orange-500/30 hover:from-orange-600 hover:to-orange-700 hover:shadow-orange-500/50"
+                >
                   <PlusCircle className="h-4 w-4" /> Create Event
                 </Button>
               </form>

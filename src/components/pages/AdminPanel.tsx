@@ -295,7 +295,7 @@ const AdminPanel = () => {
       onDragEnd={handleDragEnd}
     >
       <motion.div
-        className="flex flex-col gap-8"
+        className="flex flex-col gap-4"
         variants={staggerContainer}
         initial="initial"
         animate="animate"
@@ -393,10 +393,7 @@ const AdminPanel = () => {
           </h2>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="flex h-full flex-col gap-4 lg:col-span-1">
-              <div>
-                <h3 className="mb-2 font-semibold text-zinc-300">
-                  Add New Judges
-                </h3>
+              <Card>
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -418,7 +415,7 @@ const AdminPanel = () => {
                     <PlusCircle className="h-4 w-4" /> Add Judges
                   </Button>
                 </form>
-              </div>
+              </Card>
 
               <Card className="rounded-lg bg-zinc-900/50 p-3">
                 <h3 className="mb-2 font-semibold text-zinc-300">
@@ -483,7 +480,7 @@ const AdminPanel = () => {
                 </div>
               </Card>
             </div>
-            <div className="h-full lg:col-span-2">
+            <Card className="h-full lg:col-span-2">
               <div className="mb-4 flex rounded-lg bg-zinc-950/50 p-1">
                 <Button
                   onClick={() => setAssignmentMode("manual")}
@@ -566,7 +563,7 @@ const AdminPanel = () => {
                   )}
                 </motion.div>
               </AnimatePresence>
-            </div>
+            </Card>
           </div>
         </MotionCard>
       </motion.div>

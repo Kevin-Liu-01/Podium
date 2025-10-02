@@ -120,7 +120,7 @@ const Navbar = () => {
                 className="group flex cursor-pointer items-center space-x-2.5 px-2"
                 onClick={() => setCurrentEventId(null)}
               >
-                <Trophy className="size-6 rotate-12 text-amber-400 [filter:drop-shadow(0_0_8px_theme(colors.amber.500/0.8))] transition-transform duration-300 group-hover:scale-110" />
+                <Trophy className="size-6 rotate-12 text-orange-400 [filter:drop-shadow(0_0_8px_theme(colors.amber.500/0.8))] transition-transform duration-300 group-hover:scale-110 hover:rotate-90" />
                 <h1 className="hidden bg-gradient-to-br from-white to-zinc-400 bg-clip-text py-2 text-xl font-bold text-transparent sm:block">
                   PODIUM
                 </h1>

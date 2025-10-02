@@ -188,9 +188,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     <AppContext.Provider value={appContextValue}>
       <div className="min-h-screen font-sans text-zinc-200">
         <ToastContainer toasts={toasts} removeToast={removeToast} />
-        <main className="mx-auto max-w-7xl p-4 pt-0 sm:p-6 md:p-8">
+        <main className="mx-auto max-w-7xl p-4 py-6 pt-0">
           <Navbar />
-          <div className="h-full pt-20">{children}</div>
+          <div className="h-full pt-26">{children}</div>
         </main>
       </div>
     </AppContext.Provider>

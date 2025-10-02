@@ -247,7 +247,7 @@ const TeamSetup = () => {
               >
                 {mode === "bulk" ? (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
+                    <Card className="grid grid-cols-2 gap-3">
                       <div>
                         <Label htmlFor="prefix">Team Prefix</Label>
                         <Input
@@ -268,8 +268,8 @@ const TeamSetup = () => {
                           min="1"
                         />
                       </div>
-                    </div>
-                    <div>
+                    </Card>
+                    <Card>
                       <Label htmlFor="totalTeams">
                         Total Number of Teams to Create
                       </Label>
@@ -281,19 +281,20 @@ const TeamSetup = () => {
                         onChange={(e) => setTotalTeams(e.target.value)}
                         min="1"
                       />
-                    </div>
-                    {generationSummary && (
-                      <div className="text-center text-sm text-zinc-400">
-                        Will create{" "}
-                        <code className="rounded bg-zinc-800 px-1.5 py-1 text-orange-400">
-                          {generationSummary.startText}
-                        </code>{" "}
-                        <ChevronsRight className="inline-block size-4" />{" "}
-                        <code className="rounded bg-zinc-800 px-1.5 py-1 text-orange-400">
-                          {generationSummary.endText}
-                        </code>
-                      </div>
-                    )}
+                      {generationSummary && (
+                        <div className="mt-3 text-center text-sm text-zinc-400">
+                          Will create{" "}
+                          <code className="rounded bg-zinc-800 px-1.5 py-1 text-orange-400">
+                            {generationSummary.startText}
+                          </code>{" "}
+                          <ChevronsRight className="inline-block size-4" />{" "}
+                          <code className="rounded bg-zinc-800 px-1.5 py-1 text-orange-400">
+                            {generationSummary.endText}
+                          </code>
+                        </div>
+                      )}
+                    </Card>
+
                     <Button
                       onClick={handleGenerateTeamsClick}
                       disabled={isGenerating}
@@ -359,7 +360,7 @@ const TeamSetup = () => {
         {/* --- RIGHT COLUMN: TEAMS DISPLAY --- */}
         <div className="h-full lg:col-span-2">
           <Card className="h-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-[-1rem] z-10 mb-4 flex items-center justify-between bg-zinc-900/50 py-2 backdrop-blur-lg">
+            <div className="sticky top-[-1rem] z-10 mt-[-1rem] mb-2 flex items-center justify-between bg-zinc-900/50 py-2 backdrop-blur-lg">
               <h2 className="text-xl font-bold text-zinc-100">
                 Current Teams ({teams.length})
               </h2>

@@ -96,12 +96,12 @@ const EventCard = ({ event, onDelete }: EventCardProps) => {
               </div>
             </Tooltip>
           )}
-          <h2 className="truncate text-lg font-bold text-white transition-colors group-hover:text-orange-300">
+          <h2 className="truncate text-lg font-bold text-white transition-colors group-hover:text-orange-500">
             {event.name}
           </h2>
         </div>
         <p className="mt-1 text-sm text-zinc-400">{eventDate}</p>
-        <p className="text-xs text-zinc-600 group-hover:text-zinc-500">
+        <p className="mt-1 text-xs text-zinc-600 group-hover:text-zinc-500">
           {event.id}
         </p>
       </div>
