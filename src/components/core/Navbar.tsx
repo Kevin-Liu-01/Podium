@@ -9,8 +9,8 @@ import {
   Server,
   Download,
   LayoutGrid,
-  MapPin,
-  Loader, // Import Loader icon
+  Loader,
+  Clock, // Import Loader icon
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext } from "../../context/AppContext";
@@ -18,6 +18,7 @@ import { useExport } from "../../hooks/useExport";
 import type { Page } from "../../lib/types";
 import { CustomDropdown } from "../ui/CustomDropdown";
 import Tooltip from "../ui/Tooltip"; // Import Tooltip component
+import Image from "next/image";
 
 // A small hook to get formatted time, updating every second.
 const useClock = () => {
@@ -121,16 +122,31 @@ const Navbar = () => {
                 onClick={() => setCurrentEventId(null)}
               >
                 <Trophy className="size-6 text-orange-400 [filter:drop-shadow(0_0_8px_theme(colors.amber.500/0.8))] transition-transform duration-300 group-hover:scale-110 hover:rotate-12" />
-                <h1 className="hidden bg-gradient-to-br from-white to-zinc-400 bg-clip-text py-2 text-xl font-bold text-transparent sm:block">
-                  PODIUM
+                <div className="h-6 w-px bg-white/50"></div>
+
+                <h1 className="hidden items-center bg-gradient-to-br from-white to-zinc-400 bg-clip-text py-2 text-xl font-bold text-transparent sm:flex">
+                  <Image
+                    src="/princeton.png"
+                    alt="Princeton P"
+                    className="inline h-4 w-4 align-middle"
+                    width={32}
+                    height={32}
+                  />
+                  ODIUM
                 </h1>
               </div>
             </Tooltip>
 
             {!currentEvent && (
               <div className="hidden items-center gap-2.5 rounded-md bg-black/20 px-3 py-1 text-sm shadow-inner shadow-white/10 lg:flex">
-                <MapPin className="size-4 text-zinc-500" />
-                <span className="font-bold text-zinc-400">Princeton, NJ</span>
+                <Clock className="size-4 text-zinc-500" />
+                <span className="font-bold text-zinc-400">
+                  {// user location
+                  Intl.DateTimeFormat()
+                    .resolvedOptions()
+                    .timeZone.split("/")[1]
+                    ?.replace("_", " ")}
+                </span>
                 <div className="h-4 w-px bg-white/10"></div>
                 <span className="font-mono font-medium text-zinc-200">
                   {currentTime}

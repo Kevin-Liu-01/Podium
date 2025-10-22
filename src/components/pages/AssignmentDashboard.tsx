@@ -1026,26 +1026,18 @@ const AssignmentDashboard = () => {
                   const details = judgeDetailsMap.get(judge.id);
                   if (!details) return null;
                   return (
-                    <motion.div
+                    <JudgeListItem
                       key={judge.id}
-                      layout
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <JudgeListItem
-                        judge={judge}
-                        status={details.status}
-                        onViewDetails={() => setViewingJudge(judge)}
-                        onEnterScores={() => {
-                          const assignment = assignmentMap.get(
-                            judge.currentAssignmentId!,
-                          );
-                          if (assignment) setAssignmentToScore(assignment);
-                        }}
-                      />
-                    </motion.div>
+                      judge={judge}
+                      status={details.status}
+                      onViewDetails={() => setViewingJudge(judge)}
+                      onEnterScores={() => {
+                        const assignment = assignmentMap.get(
+                          judge.currentAssignmentId!,
+                        );
+                        if (assignment) setAssignmentToScore(assignment);
+                      }}
+                    />
                   );
                 })
               ) : (
