@@ -1,6 +1,7 @@
 import React from "react";
 import type { Judge, Review } from "../../lib/types";
 import { getColorForJudge } from "../../lib/utils";
+import Tooltip from "../ui/Tooltip";
 
 interface ReviewedJudgeCircleProps {
   judge: Judge;
@@ -28,12 +29,13 @@ const ReviewedJudgeCircle = ({ judge, review }: ReviewedJudgeCircleProps) => {
   const tooltipText = `${judge.name} - ${rankText[review.rank]} (${review.score} pts)`;
 
   return (
-    <div
-      title={tooltipText}
-      className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold text-white shadow-lg transition-transform hover:scale-110 ${judgeColor} ${rankBorders[review.rank]}`}
-    >
-      {initial}
-    </div>
+    <Tooltip content={tooltipText}>
+      <div
+        className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold text-white shadow-lg transition-transform hover:scale-110 ${judgeColor} ${rankBorders[review.rank]}`}
+      >
+        {initial}
+      </div>
+    </Tooltip>
   );
 };
 

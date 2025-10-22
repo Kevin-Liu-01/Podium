@@ -833,7 +833,7 @@ const AssignmentDashboard = () => {
                           </button>
                         </Tooltip>
                       </div>
-                      <div className="custom-scrollbar max-h-48 space-y-1 overflow-y-auto pr-1">
+                      <div className="custom-scrollbar min-h-48 space-y-1 overflow-y-auto pr-1">
                         {assignableJudges.length > 0 ? (
                           assignableJudges.map((j) => (
                             <label
@@ -972,7 +972,7 @@ const AssignmentDashboard = () => {
         </div>
 
         {/* --- [IMPROVED] RIGHT COLUMN: JUDGE STATUS --- */}
-        <MotionCard className="flex h-full max-h-full flex-col">
+        <MotionCard className="flex h-full max-h-[calc(100vh-8rem)] flex-col">
           <div className="pb-0">
             <h2 className="text-xl font-bold">Judge Status Dashboard</h2>
             <div className="mt-4 space-y-3">
