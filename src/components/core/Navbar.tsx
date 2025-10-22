@@ -124,7 +124,7 @@ const Navbar = () => {
                 <Trophy className="size-6 text-orange-400 [filter:drop-shadow(0_0_8px_theme(colors.amber.500/0.8))] transition-transform duration-300 group-hover:scale-110 hover:rotate-12" />
                 <div className="h-6 w-px bg-white/50"></div>
 
-                <h1 className="hidden items-center bg-gradient-to-br from-white to-zinc-400 bg-clip-text py-2 text-xl font-bold text-transparent sm:flex">
+                <h1 className="hidden items-center bg-gradient-to-br from-white to-zinc-400 bg-clip-text py-2 pr-3 text-xl font-bold text-transparent sm:flex">
                   <Image
                     src="/princeton.png"
                     alt="Princeton P"
