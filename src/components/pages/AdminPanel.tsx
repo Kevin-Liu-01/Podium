@@ -13,25 +13,26 @@ import {
   Users,
   Building2,
   GripVertical,
-  ArrowRight,
   Lock,
   Sparkles,
-  MousePointerSquareDashed,
+  Clock,
+  History,
+  User,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   DndContext,
   DragOverlay,
   PointerSensor,
   useSensor,
   useSensors,
-  closestCenter,
-  DragEndEvent,
-  DragStartEvent,
+  closestCorners,
+  type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import { db } from "../../firebase/config";
 import { useAppContext } from "../../context/AppContext";
-import type { Judge, Floor } from "../../lib/types";
+import type { Judge } from "../../lib/types";
 import { staggerContainer } from "../../lib/animations";
 import MotionCard from "../ui/MotionCard";
 import { Button } from "../ui/Button";
@@ -39,52 +40,31 @@ import { Input } from "../ui/Input";
 import DroppableZone from "../dnd/DroppableZone";
 import { Card } from "../ui/Card";
 import Tooltip from "../ui/Tooltip";
-
-const DraggableJudge = React.memo(({ judge }: { judge: Judge }) => {
-  const isLocked =
-    judge.completedAssignments > 0 || !!judge.currentAssignmentId;
-
-  return (
-    <div
-      className={`flex touch-none items-center justify-between rounded-md p-2.5 text-sm shadow-lg ${
-        isLocked
-          ? "cursor-not-allowed bg-zinc-800 ring-2 ring-zinc-600"
-          : "bg-zinc-700 ring-2 ring-orange-500"
-      }`}
-    >
-      <div className="flex items-center gap-2">
-        {isLocked && <Lock className="size-3.5 text-zinc-500" />}
-        <span
-          className={`font-semibold ${isLocked ? "text-zinc-500" : "text-zinc-100"}`}
-        >
-          {judge.name}
-        </span>
-      </div>
-      <GripVertical
-        className={`size-4 ${
-          isLocked ? "text-zinc-600" : "cursor-grab text-zinc-500"
-        }`}
-      />
-    </div>
-  );
-});
-DraggableJudge.displayName = "DraggableJudge";
+import ConfirmationDialog from "../ui/ConfirmationDialog";
+import DraggableJudgeOverlay from "../dnd/DraggableJudgeOverlay";
 
 const AdminPanel = () => {
-  const { judges, floors, currentEvent, showToast } = useAppContext();
+  // Get 'user' from context
+  const { judges, floors, currentEvent, showToast, user } = useAppContext();
 
   const [judgeInput, setJudgeInput] = useState("");
   const [floorName, setFloorName] = useState("");
   const [teamStart, setTeamStart] = useState("");
   const [teamEnd, setTeamEnd] = useState("");
-  const [assignmentMode, setAssignmentMode] = useState<"manual" | "auto">(
-    "manual",
-  );
 
   const [judgeItems, setJudgeItems] = useState<Record<string, Judge[]>>({
     unassigned: [],
   });
   const [activeDragItem, setActiveDragItem] = useState<Judge | null>(null);
+
+  // State for the confirmation dialog
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [deletionArgs, setDeletionArgs] = useState<{
+    id: string;
+    name: string;
+    type: "judge" | "floor";
+  } | null>(null);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
@@ -95,51 +75,86 @@ const AdminPanel = () => {
   );
 
   const unassignedJudges = useMemo(
-    () => judges.filter((j) => !j.floorId),
-    [judges],
+    () => judgeItems.unassigned || [],
+    [judgeItems],
   );
+
+  const floorMap = useMemo(() => {
+    return new Map(floors.map((f) => [f.id, f.name]));
+  }, [floors]);
 
   useEffect(() => {
     const groupedByFloor = Object.fromEntries(
       floors.map((f) => [f.id, judges.filter((j) => j.floorId === f.id)]),
     );
-    setJudgeItems({ unassigned: unassignedJudges, ...groupedByFloor });
-  }, [judges, floors, unassignedJudges]);
+    setJudgeItems({
+      unassigned: judges.filter((j) => !j.floorId),
+      ...groupedByFloor,
+    });
+  }, [judges, floors]);
 
-  const getCollectionPath = (col: string) =>
-    `events/${currentEvent!.id}/${col}`;
+  // --- [FIXED] Updated path to include user.uid ---
+  const getCollectionPath = (col: string) => {
+    if (!user || !currentEvent) {
+      throw new Error("User or event not loaded");
+    }
+    return `users/${user.uid}/events/${currentEvent.id}/${col}`;
+  };
 
-  const handleDeleteFloor = async (id: string, name: string) => {
-    if (
-      window.confirm(
-        `Are you sure you want to delete "${name}"? This cannot be undone.`,
-      )
-    ) {
-      try {
-        await deleteDoc(doc(db, getCollectionPath("floors"), id));
-        showToast(`"${name}" deleted successfully.`, "success");
-      } catch (e) {
-        showToast(`Failed to delete "${name}".`, "error");
-      }
+  // --- Deletion Logic ---
+
+  // These functions just open the dialog
+  const handleDeleteFloor = (id: string, name: string) => {
+    setDeletionArgs({ id, name, type: "floor" });
+    setIsDialogOpen(true);
+  };
+
+  const handleDeleteJudge = (id: string, name: string) => {
+    setDeletionArgs({ id, name, type: "judge" });
+    setIsDialogOpen(true);
+  };
+
+  // These functions contain the actual deletion logic
+  const executeDeleteFloor = async (id: string, name: string) => {
+    try {
+      await deleteDoc(doc(db, getCollectionPath("floors"), id));
+      showToast(`"${name}" deleted successfully.`, "success");
+    } catch (e) {
+      showToast(`Failed to delete "${name}".`, "error");
     }
   };
 
-  const handleDeleteJudge = async (id: string, name: string) => {
-    if (
-      window.confirm(
-        `Are you sure you want to delete judge "${name}"? This cannot be undone.`,
-      )
-    ) {
-      try {
-        await deleteDoc(doc(db, getCollectionPath("judges"), id));
-        showToast(`Judge "${name}" deleted successfully.`, "success");
-      } catch (e) {
-        showToast(`Failed to delete "${name}".`, "error");
-      }
+  const executeDeleteJudge = async (id: string, name: string) => {
+    try {
+      await deleteDoc(doc(db, getCollectionPath("judges"), id));
+      showToast(`Judge "${name}" deleted successfully.`, "success");
+    } catch (e) {
+      showToast(`Failed to delete "${name}".`, "error");
     }
   };
+
+  // Dialog open/close handlers
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setDeletionArgs(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletionArgs || !user || !currentEvent) return;
+
+    if (deletionArgs.type === "floor") {
+      await executeDeleteFloor(deletionArgs.id, deletionArgs.name);
+    } else if (deletionArgs.type === "judge") {
+      await executeDeleteJudge(deletionArgs.id, deletionArgs.name);
+    }
+
+    handleCloseDialog();
+  };
+
+  // --- End Deletion Logic ---
 
   const handleAddJudges = async () => {
+    if (!user || !currentEvent) return;
     const names = judgeInput
       .split("\n")
       .map((n) => n.trim())
@@ -171,6 +186,7 @@ const AdminPanel = () => {
   };
 
   const handleAddFloor = async () => {
+    if (!user || !currentEvent) return;
     if (!floorName.trim() || !teamStart || !teamEnd)
       return showToast("All floor fields are required.", "error");
 
@@ -212,16 +228,21 @@ const AdminPanel = () => {
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
+    if (!user || !currentEvent) return;
     setActiveDragItem(null);
     const { active, over } = event;
     if (!over) return;
 
     const activeId = active.id as string;
-    const judgeToMove = judges.find((j) => j.id === activeId);
+    const overId = over.id as string;
 
+    const judgeToMove = judges.find((j) => j.id === activeId);
+    if (!judgeToMove) return;
+
+    // Check for lock
     if (
-      judgeToMove &&
-      (judgeToMove.completedAssignments > 0 || judgeToMove.currentAssignmentId)
+      judgeToMove.completedAssignments > 0 ||
+      judgeToMove.currentAssignmentId
     ) {
       showToast(
         `${judgeToMove.name} cannot be moved while they have assignments.`,
@@ -230,7 +251,6 @@ const AdminPanel = () => {
       return;
     }
 
-    const overId = over.id as string;
     const activeContainer = findContainer(activeId);
     const overContainer = findContainer(overId);
 
@@ -242,55 +262,108 @@ const AdminPanel = () => {
       return;
     }
 
+    // Optimistic state update for instant UI feedback
+    setJudgeItems((prev) => {
+      const activeItems = prev[activeContainer] || [];
+      const overItems = prev[overContainer] || [];
+      const draggedJudge = activeItems.find((j) => j.id === activeId);
+
+      if (!draggedJudge) return prev;
+
+      return {
+        ...prev,
+        [activeContainer]: activeItems.filter((j) => j.id !== activeId),
+        [overContainer]: [...overItems, draggedJudge],
+      };
+    });
+
+    // Update database in the background
     const judgeRef = doc(db, getCollectionPath("judges"), activeId);
     const newFloorId = overContainer === "unassigned" ? "" : overContainer;
 
     try {
       await updateDoc(judgeRef, { floorId: newFloorId });
-      showToast(`Judge moved successfully.`, "success");
+      showToast(
+        `Moved ${judgeToMove.name} to ${
+          newFloorId === ""
+            ? "Unassigned"
+            : floors.find((f) => f.id === newFloorId)?.name
+        }.`,
+        "success",
+      );
     } catch (error) {
-      showToast("Error moving judge.", "error");
+      showToast("Error moving judge. Reverting.", "error");
       console.error("Failed to update judge floor:", error);
+      // Revert state on failure
+      setJudgeItems((prev) => {
+        const activeItems = prev[overContainer] || [];
+        const overItems = prev[activeContainer] || [];
+        const draggedJudge = activeItems.find((j) => j.id === activeId);
+
+        if (!draggedJudge) return prev;
+
+        return {
+          ...prev,
+          [overContainer]: activeItems.filter((j) => j.id !== activeId),
+          [activeContainer]: [...overItems, draggedJudge],
+        };
+      });
     }
   };
 
   const findContainer = (id: string): string | undefined => {
     if (judgeItems[id]) {
-      return id;
+      return id; // ID is a container (e.g., "unassigned" or a floor ID)
     }
+    // ID is an item, find its container
     return Object.keys(judgeItems).find((key) =>
       judgeItems[key].some((item) => item.id === id),
     );
   };
 
   const handleAutoDistribute = async () => {
-    if (unassignedJudges.length === 0 || floors.length === 0) {
-      showToast("Nothing to distribute.", "info");
+    if (!user || !currentEvent) return;
+    const judgesToDistribute = judgeItems.unassigned || [];
+    if (judgesToDistribute.length === 0 || floors.length === 0) {
+      showToast("No unassigned judges or no floors to distribute to.", "info");
       return;
     }
 
     try {
       const batch = writeBatch(db);
-      unassignedJudges.forEach((judge, index) => {
-        const targetFloor = floors[index % floors.length];
+      const newJudgeItems = { ...judgeItems };
+      newJudgeItems.unassigned = [];
+
+      judgesToDistribute.forEach((judge, index) => {
+        const targetFloor = sortedFloors[index % sortedFloors.length];
         const judgeRef = doc(db, getCollectionPath("judges"), judge.id);
         batch.update(judgeRef, { floorId: targetFloor.id });
+
+        // Optimistic update
+        newJudgeItems[targetFloor.id] = [
+          ...(newJudgeItems[targetFloor.id] || []),
+          judge,
+        ];
       });
-      await batch.commit();
+
+      setJudgeItems(newJudgeItems); // Set new state
+      await batch.commit(); // Commit to DB
       showToast(
-        `${unassignedJudges.length} judges distributed successfully!`,
+        `${judgesToDistribute.length} judges distributed successfully!`,
         "success",
       );
     } catch (error) {
       showToast("Failed to auto-distribute judges.", "error");
       console.error("Auto-distribution error:", error);
+      // Note: Reverting this optimistic update is complex;
+      // we'll rely on the snapshot listener to eventually correct the state on error.
     }
   };
 
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={closestCorners}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
@@ -392,6 +465,7 @@ const AdminPanel = () => {
             <Users className="size-5" /> Manage & Assign Judges
           </h2>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            {/* --- ADD JUDGES / ROSTER COLUMN --- */}
             <div className="flex h-full flex-col gap-4 lg:col-span-1">
               <Card>
                 <form
@@ -417,159 +491,164 @@ const AdminPanel = () => {
                 </form>
               </Card>
 
-              <Card className="rounded-lg bg-zinc-900/50 p-3">
-                <h3 className="mb-2 font-semibold text-zinc-300">
-                  All Judges ({judges.length})
+              <Card className="flex h-full max-h-102.5 flex-col">
+                <h3 className="mb-3 border-b border-zinc-700 px-3 pb-3 font-semibold text-zinc-100">
+                  Judge Roster ({judges.length})
                 </h3>
-                <div className="max-h-64 space-y-2 overflow-y-auto pr-2">
+                <div className="custom-scrollbar h-full space-y-2 overflow-y-auto pb-3">
                   {[...judges]
                     .sort((a, b) => a.name.localeCompare(b.name))
                     .map((judge) => {
-                      const isLocked =
-                        judge.completedAssignments > 0 ||
-                        !!judge.currentAssignmentId;
+                      const isBusy = !!judge.currentAssignmentId;
+                      const hasHistory = judge.completedAssignments > 0;
+                      const isLocked = isBusy || hasHistory;
+                      const floorName = judge.floorId
+                        ? floorMap.get(judge.floorId)
+                        : "Unassigned";
+
+                      let StatusIcon, statusColor, statusTooltip;
+                      if (isBusy) {
+                        StatusIcon = Clock;
+                        statusColor = "text-amber-400";
+                        statusTooltip = "Busy";
+                      } else if (hasHistory) {
+                        StatusIcon = Lock;
+                        statusColor = "text-zinc-500";
+                        statusTooltip = "Locked (has history)";
+                      } else {
+                        StatusIcon = User;
+                        statusColor = "text-emerald-400";
+                        statusTooltip = "Available";
+                      }
+
                       return (
                         <div
                           key={judge.id}
-                          className="flex items-center justify-between rounded-md bg-zinc-800 p-2 text-sm"
+                          className="flex items-center justify-between rounded-lg bg-zinc-800/70 px-3 py-2 pr-4 text-sm"
                         >
-                          <div className="flex items-center gap-2">
-                            <Tooltip
-                              content={
-                                isLocked
-                                  ? "This judge has assignments and cannot be deleted or moved."
-                                  : "This judge is unassigned and can be moved or deleted."
-                              }
-                              position="right"
-                            >
-                              <span
-                                className={
-                                  isLocked
-                                    ? "text-zinc-500"
-                                    : "text-emerald-500"
-                                }
-                              >
-                                <Lock
-                                  className={`size-4 ${isLocked ? "" : "opacity-50"}`}
-                                />
-                              </span>
+                          <div className="flex min-w-0 items-center gap-2.5">
+                            <Tooltip content={statusTooltip} position="right">
+                              <StatusIcon
+                                className={`size-4 flex-shrink-0 ${statusColor}`}
+                              />
                             </Tooltip>
-                            <span
-                              className={
-                                isLocked ? "text-zinc-500" : "text-zinc-100"
-                              }
-                            >
-                              {judge.name}
-                            </span>
+                            <div className="min-w-0">
+                              <p
+                                className="truncate font-semibold text-zinc-100"
+                                title={judge.name}
+                              >
+                                {judge.name}
+                              </p>
+                              <p className="truncate text-xs text-zinc-400">
+                                {floorName}
+                              </p>
+                            </div>
                           </div>
-                          {!isLocked && (
-                            <Tooltip content="Delete Judge" position="left">
-                              <button
-                                onClick={() =>
-                                  handleDeleteJudge(judge.id, judge.name)
-                                }
-                                className="text-rose-500/60 transition-colors hover:text-rose-500"
+                          <div className="flex flex-shrink-0 items-center gap-2 pl-2">
+                            {hasHistory && (
+                              <Tooltip
+                                content="Completed Assignments"
+                                position="left"
                               >
-                                <Trash2 className="size-4" />
-                              </button>
-                            </Tooltip>
-                          )}
+                                <div className="flex items-center gap-1 text-xs text-emerald-400">
+                                  <History className="size-3" />
+                                  {judge.completedAssignments}
+                                </div>
+                              </Tooltip>
+                            )}
+                            {!isLocked && (
+                              <Tooltip content="Delete Judge" position="left">
+                                <button
+                                  onClick={() =>
+                                    handleDeleteJudge(judge.id, judge.name)
+                                  }
+                                  className="cursor-pointer text-rose-500/60 transition-colors hover:text-rose-500"
+                                >
+                                  <Trash2 className="size-4" />
+                                </button>
+                              </Tooltip>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
                 </div>
               </Card>
+              {/* --- END NEW CARD --- */}
             </div>
-            <Card className="h-full lg:col-span-2">
-              <div className="mb-4 flex rounded-lg bg-zinc-950/50 p-1">
-                <Button
-                  onClick={() => setAssignmentMode("manual")}
-                  className={`w-1/2 ${assignmentMode === "manual" ? "bg-orange-600" : "bg-transparent"}`}
-                  size="sm"
-                >
-                  <MousePointerSquareDashed className="size-4" /> Manual Drag &
-                  Drop
-                </Button>
-                <Button
-                  onClick={() => setAssignmentMode("auto")}
-                  className={`w-1/2 ${assignmentMode === "auto" ? "bg-orange-600" : "bg-transparent"}`}
-                  size="sm"
-                >
-                  <Sparkles className="size-4" /> Auto-Distribute
-                </Button>
-              </div>
 
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={assignmentMode}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                  className="h-[calc(100%-3.3rem)]"
+            {/* --- ASSIGNMENT AREA --- */}
+            <div className="flex h-full flex-col gap-4 lg:col-span-2">
+              {/* --- AUTO-DISTRIBUTE CARD --- */}
+              <Card className="flex flex-col items-start gap-4 bg-zinc-900/50 p-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h3 className="flex items-center gap-2 text-lg font-bold text-white">
+                    <Sparkles className="size-5 text-orange-400" />
+                    Auto-Distribute
+                  </h3>
+                  <p className="mt-1 text-sm text-zinc-400">
+                    Evenly distribute all{" "}
+                    <strong>{unassignedJudges.length}</strong> unassigned judges
+                    among the <strong>{floors.length}</strong> floors.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleAutoDistribute}
+                  disabled={
+                    unassignedJudges.length === 0 || floors.length === 0
+                  }
+                  size="md"
+                  className="w-full flex-shrink-0 bg-gradient-to-br from-orange-500 to-orange-600 text-sm transition-all duration-150 hover:from-orange-600 hover:to-orange-700 md:w-auto"
                 >
-                  {assignmentMode === "manual" ? (
-                    <div
-                      className={`grid h-full grid-cols-1 gap-4 ${
-                        floors.length >= 1 ? "md:grid-cols-2" : ""
-                      } `}
-                    >
-                      <div
-                        className={
-                          floors.length >= 1 ? "h-full md:row-span-2" : "h-full"
-                        }
-                      >
-                        <DroppableZone
-                          id="unassigned"
-                          title={`Unassigned (${unassignedJudges.length})`}
-                          items={judgeItems.unassigned || []}
-                        />
-                      </div>
-                      {floors.map((floor) => (
-                        <DroppableZone
-                          key={floor.id}
-                          id={floor.id}
-                          title={`${floor.name} (${(judgeItems[floor.id] || []).length})`}
-                          items={judgeItems[floor.id] || []}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <Card className="flex h-full flex-col items-center justify-center bg-zinc-900/50 p-8 text-center">
-                      <Sparkles className="size-8 text-orange-400" />
-                      <h3 className="mt-4 text-lg font-bold text-white">
-                        Auto-Distribute Judges
-                      </h3>
-                      <p className="mt-2 max-w-sm text-sm text-zinc-400">
-                        This will evenly distribute all{" "}
-                        <strong>{unassignedJudges.length}</strong> unassigned
-                        judges among the <strong>{floors.length}</strong>{" "}
-                        available floors in a round-robin fashion.
-                      </p>
-                      <div className="mt-4">
-                        <Button
-                          onClick={handleAutoDistribute}
-                          disabled={
-                            unassignedJudges.length === 0 || floors.length === 0
-                          }
-                          size="md"
-                          className="bg-gradient-to-br from-orange-500 to-orange-600 text-sm transition-all duration-150 hover:from-orange-600 hover:to-orange-700"
-                        >
-                          <Sparkles className="size-4" /> Distribute Unassigned
-                          Judges
-                        </Button>
-                      </div>
-                    </Card>
-                  )}
-                </motion.div>
-              </AnimatePresence>
-            </Card>
+                  <Sparkles className="size-4" /> Distribute Judges
+                </Button>
+              </Card>
+
+              {/* --- DND ZONES --- */}
+              <div className="flex flex-col gap-4">
+                <DroppableZone
+                  id="unassigned"
+                  title={`Unassigned (${unassignedJudges.length})`}
+                  items={unassignedJudges}
+                  onDeleteJudge={handleDeleteJudge}
+                />
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {sortedFloors.map((floor) => (
+                    <DroppableZone
+                      key={floor.id}
+                      id={floor.id}
+                      title={`${floor.name} (${(judgeItems[floor.id] || []).length})`}
+                      items={judgeItems[floor.id] || []}
+                      onDeleteJudge={handleDeleteJudge}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </MotionCard>
       </motion.div>
       <DragOverlay>
-        {activeDragItem ? <DraggableJudge judge={activeDragItem} /> : null}
+        {activeDragItem ? (
+          <DraggableJudgeOverlay judge={activeDragItem} />
+        ) : null}
       </DragOverlay>
+
+      {/* --- CONFIRMATION DIALOG --- */}
+      <ConfirmationDialog
+        isOpen={isDialogOpen}
+        onClose={handleCloseDialog}
+        onConfirm={handleConfirmDelete}
+        title={`Delete ${deletionArgs?.type === "floor" ? "Floor" : "Judge"}`}
+        icon={<Trash2 className="size-6 text-rose-500" />}
+      >
+        <p>
+          Are you sure you want to delete <strong>{deletionArgs?.name}</strong>?
+        </p>
+        <p className="mt-2 text-sm text-zinc-400">
+          This action cannot be undone.
+        </p>
+      </ConfirmationDialog>
     </DndContext>
   );
 };

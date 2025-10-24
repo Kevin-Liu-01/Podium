@@ -2,7 +2,6 @@
 import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ShaderGradientCanvas, ShaderGradient } from "@shadergradient/react";
-import * as reactSpring from "@react-spring/three";
 import { useAppContext } from "../../context/AppContext";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import EventSetupPanel from "../event/EventSetupPanel";

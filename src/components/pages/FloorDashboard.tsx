@@ -220,7 +220,9 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
 
       <MotionCard className="mb-6 rounded-lg border border-zinc-800 bg-zinc-900/50 shadow-lg shadow-black/30">
         <p className="mb-4 text-zinc-400">
-          Click on a team to see detailed scores.
+          {floorTeams?.length > 0
+            ? "Click on a team to see detailed scores."
+            : "Create teams and assign them to this floor to get started."}
         </p>
 
         <motion.div
@@ -229,19 +231,29 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
           initial="initial"
           animate="animate"
         >
-          {floorTeams.map((team) => {
-            // --- MODIFIED: Get the assigned judges and pass them to TeamCard ---
-            const assignedJudgeIds = assignedJudgesMap.get(team.id) || [];
-            return (
-              <motion.div variants={fadeInUp} key={team.id}>
-                <TeamCard
-                  team={team}
-                  onClick={() => setSelectedTeam(team)}
-                  assignedJudgeIds={assignedJudgeIds}
-                />
-              </motion.div>
-            );
-          })}
+          {floorTeams.length > 0
+            ? floorTeams.map((team) => {
+                const assignedJudgeIds = assignedJudgesMap.get(team.id) || [];
+                return (
+                  <motion.div variants={fadeInUp} key={team.id}>
+                    <TeamCard
+                      team={team}
+                      onClick={() => setSelectedTeam(team)}
+                      assignedJudgeIds={assignedJudgeIds}
+                    />
+                  </motion.div>
+                );
+              })
+            : Array.from({ length: 8 }).map((_, index) => (
+                <motion.div variants={fadeInUp} key={index}>
+                  <div className="animate-pulse rounded-lg bg-zinc-800 p-4">
+                    <div className="mb-2 h-6 w-3/4 rounded bg-zinc-700"></div>
+                    <div className="mb-4 h-4 w-1/2 rounded bg-zinc-700"></div>
+                    <div className="h-4 w-full rounded bg-zinc-700"></div>
+                    <div className="mt-2 h-4 w-5/6 rounded bg-zinc-700"></div>
+                  </div>
+                </motion.div>
+              ))}
         </motion.div>
       </MotionCard>
 

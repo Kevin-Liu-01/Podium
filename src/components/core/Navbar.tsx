@@ -10,14 +10,14 @@ import {
   Download,
   LayoutGrid,
   Loader,
-  Clock, // Import Loader icon
+  Clock,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext } from "../../context/AppContext";
 import { useExport } from "../../hooks/useExport";
 import type { Page } from "../../lib/types";
 import { CustomDropdown } from "../ui/CustomDropdown";
-import Tooltip from "../ui/Tooltip"; // Import Tooltip component
+import Tooltip from "../ui/Tooltip";
 import Image from "next/image";
 
 // A small hook to get formatted time, updating every second.
@@ -94,18 +94,26 @@ const Navbar = () => {
       y: 0,
       transition: { duration: 0.3, ease: "easeOut" },
     },
-    exit: { opacity: 0, y: 10, transition: { duration: 0.2, ease: "easeIn" } },
+    exit: {
+      opacity: 0,
+      y: 10,
+      transition: { duration: 0.005, ease: "easeIn" },
+    },
   };
 
   return (
     <nav
-      className={`fixed top-0 right-0 left-0 z-50 mx-auto max-w-7xl transition-all duration-300 ease-in-out md:top-4 md:px-4`}
+      className={`fixed top-0 right-0 left-0 z-50 transition-all duration-500 ease-in-out ${
+        isScrolled
+          ? "mx-auto w-full max-w-full md:top-0"
+          : "mx-auto max-w-7xl px-4 md:top-4"
+      }`}
     >
       <div
-        className={`group relative border-b border-zinc-700/50 bg-zinc-900/70 p-3 px-4 shadow-2xl shadow-black/50 transition-all duration-300 md:rounded-2xl md:border ${
+        className={`group relative mx-auto border-b border-zinc-700/50 bg-zinc-900/70 p-3 px-4 shadow-2xl shadow-black/50 transition-all duration-500 ease-in-out md:border ${
           isScrolled
             ? "backdrop-blur-xl"
-            : "border-transparent bg-transparent shadow-none"
+            : "border-transparent bg-transparent shadow-none md:rounded-2xl"
         }`}
       >
         <div className="absolute inset-0 overflow-hidden rounded-xl">
@@ -122,7 +130,7 @@ const Navbar = () => {
                 onClick={() => setCurrentEventId(null)}
               >
                 <Trophy className="size-6 text-orange-400 [filter:drop-shadow(0_0_8px_theme(colors.amber.500/0.8))] transition-transform duration-300 group-hover:scale-110 hover:rotate-12" />
-                <div className="h-6 w-px bg-white/50"></div>
+                <div className="h-6 w-px bg-white/30"></div>
 
                 <h1 className="hidden items-center bg-gradient-to-br from-white to-zinc-400 bg-clip-text py-2 pr-3 text-xl font-bold text-transparent sm:flex">
                   <Image

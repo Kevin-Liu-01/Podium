@@ -7,6 +7,16 @@ export interface Judge {
   currentAssignmentId?: string;
   completedAssignments: number;
 }
+
+export interface Team {
+  id: string;
+  name: string;
+  number: number;
+  floorId: string;
+  reviewedBy: Review[];
+  totalScore: number;
+  averageScore: number;
+}
 export interface Room {
   id: string;
   number: string;

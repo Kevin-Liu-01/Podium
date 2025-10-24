@@ -68,6 +68,15 @@ const TeamCard = ({ team, onClick, assignedJudgeIds }: TeamCardProps) => {
               </span>
             </span>
           </Tooltip>
+          <Tooltip content="Team Number">
+            <span className="flex items-center gap-1.5">
+              <Users className="size-4 text-red-400" />
+              <span className="font-semibold text-white">
+                Team {team.number}
+              </span>
+            </span>
+          </Tooltip>
+
           <Tooltip content="Total Reviews">
             <span className="flex items-center gap-1.5">
               <MessageSquare className="size-4 text-sky-400" />

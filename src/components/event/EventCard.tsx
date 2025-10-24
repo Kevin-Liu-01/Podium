@@ -22,7 +22,8 @@ interface EventCardProps {
 }
 
 const EventCard = ({ event, onDelete }: EventCardProps) => {
-  const { setCurrentEventId, currentEventId } = useAppContext();
+  // 1. Get the 'user' object from the context
+  const { setCurrentEventId, currentEventId, user } = useAppContext();
   const { exportToCSV } = useExport();
   const [stats, setStats] = useState({ judges: 0, teams: 0, floors: 0 });
   const [isStatsLoading, setIsStatsLoading] = useState(true);
@@ -31,13 +32,22 @@ const EventCard = ({ event, onDelete }: EventCardProps) => {
   const isActive = event.id === currentEventId;
 
   useEffect(() => {
+    // 2. If there's no user, don't try to fetch
+    if (!user) {
+      setIsStatsLoading(false);
+      return;
+    }
+
     const fetchStats = async () => {
       setIsStatsLoading(true);
       try {
+        // 3. Define the new, correct base path
+        const basePath = `users/${user.uid}/events/${event.id}`;
         const collections = ["judges", "teams", "floors"];
+
         const counts = await Promise.all(
           collections.map((col) =>
-            getCountFromServer(collection(db, `events/${event.id}/${col}`)),
+            getCountFromServer(collection(db, `${basePath}/${col}`)),
           ),
         );
         setStats({
@@ -47,12 +57,13 @@ const EventCard = ({ event, onDelete }: EventCardProps) => {
         });
       } catch (error) {
         console.error("Failed to fetch event stats:", error);
+        setStats({ judges: 0, teams: 0, floors: 0 }); // Clear stats on error
       } finally {
         setIsStatsLoading(false);
       }
     };
     fetchStats();
-  }, [event.id]);
+  }, [event.id, user]); // 4. Add 'user' to the dependency array
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -62,6 +73,8 @@ const EventCard = ({ event, onDelete }: EventCardProps) => {
   const handleDownloadClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsDownloading(true);
+    // Note: Your 'useExport' hook will ALSO need to be updated
+    // to use the user.uid to find the correct data.
     await exportToCSV(event);
     setIsDownloading(false);
   };

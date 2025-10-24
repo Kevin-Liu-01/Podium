@@ -78,7 +78,13 @@ const ScoreDetailModal = ({
             <Card className="border-2 border-orange-500/80">
               <div className="mb-4 flex items-start justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold">Team #{team.number}</h2>
+                  <h2 className="flex items-center text-2xl font-bold text-white">
+                    {team.name}
+                    <p className="ml-2 rounded-full bg-zinc-800 px-2 py-1 text-base font-normal text-orange-400">
+                      #{team.number}
+                    </p>
+                  </h2>
+
                   <p className="text-sm text-zinc-400">
                     Avg Score: {team.averageScore.toFixed(2)}
                   </p>

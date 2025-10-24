@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   Loader2,
   PlusIcon,
+  UserMinus,
 } from "lucide-react";
 import { db } from "../../firebase/config";
 import { useAppContext } from "../../context/AppContext";
@@ -265,7 +266,8 @@ const JudgeListItem = ({
 
 // --- Main Dashboard Component ---
 const AssignmentDashboard = () => {
-  const { judges, teams, assignments, floors, currentEvent, showToast } =
+  // Get 'user' from context
+  const { judges, teams, assignments, floors, currentEvent, showToast, user } =
     useAppContext();
 
   // Component State
@@ -457,17 +459,21 @@ const AssignmentDashboard = () => {
     );
   };
 
-  // --- [FIXED] handleSwitchFloor function ---
+  // --- [FIXED] handleSwitchFloor function with new path ---
   const handleSwitchFloor = async (judgeId: string, newFloorId: string) => {
     const judge = judges.find((j) => j.id === judgeId);
-    if (!currentEvent || !judge) return;
+    if (!currentEvent || !user || !judge) return;
     if (judge.hasSwitchedFloors)
       return showToast("This judge has already switched floors.", "warning");
     if (!newFloorId)
       return showToast("Please select a destination floor.", "error");
 
     setIsSwitchingFloor(true);
-    const judgeRef = doc(db, `events/${currentEvent.id}/judges`, judgeId);
+    const judgeRef = doc(
+      db,
+      `users/${user.uid}/events/${currentEvent.id}/judges`,
+      judgeId,
+    );
     try {
       await updateDoc(judgeRef, {
         floorId: newFloorId,
@@ -482,11 +488,12 @@ const AssignmentDashboard = () => {
     }
   };
 
+  // --- [FIXED] handleRemoveAssignment function with new path ---
   const handleRemoveAssignment = async (
     assignmentId: string,
     judgeId: string,
   ) => {
-    if (!currentEvent) return;
+    if (!currentEvent || !user) return;
     if (
       !window.confirm(
         "Are you sure you want to remove this active assignment? This cannot be undone.",
@@ -499,10 +506,14 @@ const AssignmentDashboard = () => {
       const batch = writeBatch(db);
       const assignmentRef = doc(
         db,
-        `events/${currentEvent.id}/assignments`,
+        `users/${user.uid}/events/${currentEvent.id}/assignments`,
         assignmentId,
       );
-      const judgeRef = doc(db, `events/${currentEvent.id}/judges`, judgeId);
+      const judgeRef = doc(
+        db,
+        `users/${user.uid}/events/${currentEvent.id}/judges`,
+        judgeId,
+      );
 
       batch.delete(assignmentRef);
       batch.update(judgeRef, { currentAssignmentId: null });
@@ -518,8 +529,9 @@ const AssignmentDashboard = () => {
     }
   };
 
+  // --- [FIXED] generateAssignments function with new path ---
   const generateAssignments = async () => {
-    if (!currentEvent) return;
+    if (!currentEvent || !user) return;
     if (autoSelectedJudgeIds.length === 0)
       return showToast("Please select at least one judge.", "error");
     if (!selectedFloorId) return showToast("Please select a floor.", "error");
@@ -612,10 +624,9 @@ const AssignmentDashboard = () => {
 
       if (newAssignmentsToCreate.length > 0) {
         const batch = writeBatch(db);
+        const basePath = `users/${user.uid}/events/${currentEvent.id}`;
         for (const { judge, teams } of newAssignmentsToCreate) {
-          const assignmentRef = doc(
-            collection(db, `events/${currentEvent.id}/assignments`),
-          );
+          const assignmentRef = doc(collection(db, `${basePath}/assignments`));
           batch.set(assignmentRef, {
             judgeId: judge.id,
             teamIds: teams.map((t) => t.id),
@@ -623,7 +634,7 @@ const AssignmentDashboard = () => {
             createdAt: Timestamp.now(),
             floorId: selectedFloorId,
           });
-          batch.update(doc(db, `events/${currentEvent.id}/judges`, judge.id), {
+          batch.update(doc(db, `${basePath}/judges`, judge.id), {
             currentAssignmentId: assignmentRef.id,
           });
         }
@@ -659,8 +670,9 @@ const AssignmentDashboard = () => {
     }
   };
 
+  // --- [FIXED] createManualAssignment function with new path ---
   const createManualAssignment = async () => {
-    if (!currentEvent) return;
+    if (!currentEvent || !user) return;
     if (!manualSelectedJudgeId)
       return showToast("Please select a judge.", "error");
     if (manualSelectedTeamIds.length === 0)
@@ -668,9 +680,8 @@ const AssignmentDashboard = () => {
     setIsAssigning(true);
     try {
       const batch = writeBatch(db);
-      const assignmentRef = doc(
-        collection(db, `events/${currentEvent.id}/assignments`),
-      );
+      const basePath = `users/${user.uid}/events/${currentEvent.id}`;
+      const assignmentRef = doc(collection(db, `${basePath}/assignments`));
       batch.set(assignmentRef, {
         judgeId: manualSelectedJudgeId,
         teamIds: manualSelectedTeamIds,
@@ -678,10 +689,9 @@ const AssignmentDashboard = () => {
         createdAt: Timestamp.now(),
         floorId: selectedFloorId,
       });
-      batch.update(
-        doc(db, `events/${currentEvent.id}/judges`, manualSelectedJudgeId),
-        { currentAssignmentId: assignmentRef.id },
-      );
+      batch.update(doc(db, `${basePath}/judges`, manualSelectedJudgeId), {
+        currentAssignmentId: assignmentRef.id,
+      });
       await batch.commit();
       showToast("Manual assignment created successfully!", "success");
       setManualSelectedTeamIds([]);
@@ -760,9 +770,9 @@ const AssignmentDashboard = () => {
         )}
       </AnimatePresence>
 
-      <div className="grid h-full grid-cols-1 gap-8 lg:grid-cols-2">
+      <div className="grid h-full grid-cols-1 gap-4 lg:grid-cols-2">
         {/* --- LEFT COLUMN: CONTROLS --- */}
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4">
           <MotionCard className="z-20">
             <label className="mb-2 block font-semibold">
               Viewing & Assigning on Floor
@@ -808,7 +818,7 @@ const AssignmentDashboard = () => {
                 className="flex-grow pt-4"
               >
                 {mode === "auto" && (
-                  <div className="flex h-full flex-col">
+                  <div className="flex flex-col">
                     <div className="flex-grow rounded-lg border border-zinc-700 bg-zinc-800/50 p-3">
                       <div className="mb-2 flex items-center justify-between">
                         <label className="font-semibold text-zinc-300">
@@ -833,7 +843,7 @@ const AssignmentDashboard = () => {
                           </button>
                         </Tooltip>
                       </div>
-                      <div className="custom-scrollbar min-h-48 space-y-1 overflow-y-auto pr-1">
+                      <div className="custom-scrollbar h-76 space-y-1 overflow-y-auto pr-1">
                         {assignableJudges.length > 0 ? (
                           assignableJudges.map((j) => (
                             <label
@@ -852,8 +862,9 @@ const AssignmentDashboard = () => {
                             </label>
                           ))
                         ) : (
-                          <p className="pt-4 text-center text-sm text-zinc-500 italic">
-                            No assignable judges on this floor.
+                          <p className="flex h-full flex-col items-center justify-center gap-2 pt-4 text-center text-sm text-zinc-500 italic">
+                            <UserMinus className="mr-2 size-6" />
+                            No assignable judges.
                           </p>
                         )}
                       </div>
@@ -907,7 +918,7 @@ const AssignmentDashboard = () => {
                           onChange={(e) => setTeamSearch(e.target.value)}
                         />
                       </div>
-                      <div className="custom-scrollbar max-h-48 space-y-1 overflow-y-auto pr-1">
+                      <div className="custom-scrollbar h-43.5 space-y-1 overflow-y-auto pr-1">
                         {manualModeTeams.map((team) => {
                           const hasJudged = manualJudgedTeamIds.has(team.id);
                           return (
@@ -1041,11 +1052,7 @@ const AssignmentDashboard = () => {
                   );
                 })
               ) : (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex h-40 flex-col items-center justify-center text-center"
-                >
+                <MotionCard className="flex h-full flex-col items-center justify-center text-center">
                   <XCircle className="size-8 text-zinc-600" />
                   <p className="mt-2 font-semibold text-zinc-400">
                     No Judges Found
@@ -1053,7 +1060,7 @@ const AssignmentDashboard = () => {
                   <p className="text-sm text-zinc-500">
                     Try adjusting your search or filter.
                   </p>
-                </motion.div>
+                </MotionCard>
               )}
             </AnimatePresence>
           </div>

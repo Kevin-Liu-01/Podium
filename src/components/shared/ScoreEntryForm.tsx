@@ -173,7 +173,13 @@ const ScoreEntryForm = ({
             key={team.id}
             className={`flex items-center justify-between rounded-lg bg-zinc-800/80 p-4 transition-all ${getRowClass(team.id)}`}
           >
-            <p className="text-lg font-bold">Team {team.number}</p>
+            <p className="text-lg font-bold">
+              {team.name}
+
+              <span className="ml-2 text-base font-normal text-zinc-400">
+                (Team {team.number})
+              </span>
+            </p>
             <div className="flex space-x-2">
               {[1, 2, 3, 0].map((r) => {
                 const rank = r as Review["rank"];

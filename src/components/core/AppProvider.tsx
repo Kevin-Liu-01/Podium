@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { collection, onSnapshot } from "firebase/firestore";
-import { db } from "../../firebase/config";
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore"; // Added query, orderBy
+import { auth, db } from "../../firebase/config"; // Added auth
+import { onAuthStateChanged, type User } from "firebase/auth"; // Added auth imports
 import { AppContext } from "../../context/AppContext";
 import Navbar from "./Navbar";
 import ToastContainer from "../toast/ToastContainer";
 
-// --- Type Definitions (Updated) ---
+// --- Type Definitions (Keep these as they are) ---
 export interface Team {
   id: string;
   name: string;
@@ -24,6 +25,7 @@ export interface Judge {
   floorId?: string;
   currentAssignmentId?: string;
   completedAssignments: number;
+  hasSwitchedFloors: boolean; // Added this based on other files
 }
 
 export interface Floor {
@@ -39,16 +41,18 @@ export interface Assignment {
   judgeId: string;
   teamIds: string[];
   submitted: boolean;
-  createdAt: any; // Firebase Timestamp
+  createdAt: unknown; // Firebase Timestamp
   floorId: string;
 }
 
 export interface Event {
   id: string;
   name: string;
+  createdAt: unknown; // Added based on EventSetupPanel
+  ownerId?: string; // Added based on EventSetupPanel
 }
 
-export type Page = "admin" | "teams" | "assignments" | "results" | string; // For floor IDs
+export type Page = "admin" | "teams" | "assignments" | "results"; // For floor IDs
 
 export type ToastType = "info" | "success" | "warning" | "error";
 export interface Toast {
@@ -69,18 +73,27 @@ export interface AppContextType {
   setCurrentEventId: (id: string | null) => void;
   showToast: (message: string, type?: ToastType) => void;
   isLoading: boolean;
+  user: User | null; // <-- ADDED USER
+  authLoading: boolean; // <-- ADDED AUTH LOADING STATE
 }
 // --- End Type Definitions ---
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
+  // --- Auth State ---
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // --- Data State ---
   const [events, setEvents] = useState<Event[]>([]);
   const [currentEventId, setCurrentEventId] = useState<string | null>(null);
   const [judges, setJudges] = useState<Judge[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
-  const [page, setPage] = useState<Page>("admin");
-  const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState<Page>("admin"); // Default page might change based on auth
+  const [dataLoading, setDataLoading] = useState(true); // Renamed from isLoading for clarity
+
+  // --- Toast State ---
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const showToast = useCallback((message: string, type: ToastType = "info") => {
@@ -92,65 +105,159 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
+  // --- Effect for Auth State ---
   useEffect(() => {
-    setIsLoading(true);
-    const unsubEvents = onSnapshot(collection(db, "events"), (snapshot) => {
-      const fetchedEvents = snapshot.docs
-        .map((doc) => ({ id: doc.id, ...doc.data() }) as Event)
-        .sort((a, b) => parseInt(b.id) - parseInt(a.id));
-      setEvents(fetchedEvents);
-      setIsLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+      if (!currentUser) {
+        // Clear everything if user logs out
+        setCurrentEventId(null);
+        setEvents([]);
+        setJudges([]);
+        setTeams([]);
+        setAssignments([]);
+        setFloors([]);
+        setPage("admin"); // Or redirect to a landing/login page logic elsewhere
+      }
     });
-    return () => unsubEvents();
+    return () => unsubscribe();
   }, []);
 
+  // --- Effect for Fetching User's Events ---
   useEffect(() => {
-    if (!currentEventId) {
+    // Wait for auth to finish loading
+    if (authLoading) return;
+
+    if (user) {
+      // User is logged in, fetch their events
+      setDataLoading(true);
+      const userEventsCollection = collection(db, "users", user.uid, "events");
+      const q = query(userEventsCollection, orderBy("createdAt", "desc"));
+
+      const unsubEvents = onSnapshot(
+        q,
+        (snapshot) => {
+          const fetchedEvents = snapshot.docs.map(
+            (doc) => ({ id: doc.id, ...doc.data() }) as Event,
+          );
+          setEvents(fetchedEvents);
+          // If the current event doesn't belong to this user, clear it
+          if (
+            currentEventId &&
+            !fetchedEvents.some((e) => e.id === currentEventId)
+          ) {
+            setCurrentEventId(null);
+          }
+          setDataLoading(false);
+        },
+        (error) => {
+          console.error("Error fetching user events:", error);
+          showToast("Could not fetch your events.", "error");
+          setDataLoading(false);
+        },
+      );
+      return () => unsubEvents();
+    } else {
+      // User is logged out, clear events
+      setEvents([]);
+      setCurrentEventId(null); // Ensure current event is cleared
+      setDataLoading(false);
+    }
+  }, [user, authLoading, showToast]); // Depend on user and authLoading
+
+  // --- Effect for Fetching Data for the *Selected* Event ---
+  // Note: Sub-collections (judges, teams etc.) still seem to live under the global /events path based on previous code.
+  // If they should also be under users/{userId}/events/{eventId}/..., update the paths below.
+  useEffect(() => {
+    // Only fetch if a user is logged in AND an event is selected
+    if (!currentEventId || !user) {
       setJudges([]);
       setTeams([]);
       setAssignments([]);
       setFloors([]);
-      setPage("admin");
+      if (!authLoading) setDataLoading(false); // Stop loading if auth is done and no event/user
       return;
     }
-    setIsLoading(true);
+
+    setDataLoading(true);
+    // *** THIS IS THE CHANGED LINE ***
+    // All sub-collections are now fetched from the user's event document
+    const basePath = `users/${user.uid}/events/${currentEventId}`;
+
     const collections = {
-      judges: `events/${currentEventId}/judges`,
-      teams: `events/${currentEventId}/teams`,
-      assignments: `events/${currentEventId}/assignments`,
-      floors: `events/${currentEventId}/floors`,
+      judges: `${basePath}/judges`,
+      teams: `${basePath}/teams`,
+      assignments: `${basePath}/assignments`,
+      floors: `${basePath}/floors`,
     };
-    const unsubs = [
-      onSnapshot(collection(db, collections.judges), (s) =>
+
+    let active = true; // Flag to prevent setting state after unmount
+
+    const unsubJudges = onSnapshot(
+      collection(db, collections.judges),
+      (s) => {
+        if (!active) return;
         setJudges(
           s.docs
             .map((d) => ({ ...d.data(), id: d.id }) as Judge)
             .sort((a, b) => a.name.localeCompare(b.name)),
-        ),
-      ),
-      onSnapshot(collection(db, collections.teams), (s) =>
+        );
+      },
+      (err) => console.error("Judge snapshot error:", err),
+    );
+
+    const unsubTeams = onSnapshot(
+      collection(db, collections.teams),
+      (s) => {
+        if (!active) return;
         setTeams(
           s.docs
             .map((d) => ({ ...d.data(), id: d.id }) as Team)
             .sort((a, b) => a.number - b.number),
-        ),
-      ),
-      onSnapshot(collection(db, collections.assignments), (s) =>
+        );
+      },
+      (err) => console.error("Team snapshot error:", err),
+    );
+
+    const unsubAssignments = onSnapshot(
+      collection(db, collections.assignments),
+      (s) => {
+        if (!active) return;
         setAssignments(
           s.docs.map((d) => ({ ...d.data(), id: d.id }) as Assignment),
-        ),
-      ),
-      onSnapshot(collection(db, collections.floors), (s) => {
+        );
+      },
+      (err) => console.error("Assignment snapshot error:", err),
+    );
+
+    const unsubFloors = onSnapshot(
+      collection(db, collections.floors),
+      (s) => {
+        if (!active) return;
         setFloors(
           s.docs
             .map((d) => ({ ...d.data(), id: d.id }) as Floor)
             .sort((a, b) => a.index - b.index),
         );
-        setIsLoading(false);
-      }),
-    ];
-    return () => unsubs.forEach((unsub) => unsub());
-  }, [currentEventId]);
+        setDataLoading(false); // Set loading false after the last fetch completes
+      },
+      (err) => {
+        console.error("Floor snapshot error:", err);
+        if (!active) return;
+        setDataLoading(false); // Also stop loading on error
+      },
+    );
+
+    // Cleanup function
+    return () => {
+      active = false; // Prevent state updates after unmount/dependency change
+      unsubJudges();
+      unsubTeams();
+      unsubAssignments();
+      unsubFloors();
+    };
+  }, [currentEventId, user, authLoading]); // Depend on currentEventId AND user
 
   const currentEvent = useMemo(
     () => events.find((e) => e.id === currentEventId) || null,
@@ -163,13 +270,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       teams,
       assignments,
       floors,
-      events,
+      events, // Now user-specific
       page,
       setPage,
       currentEvent,
       setCurrentEventId,
       showToast,
-      isLoading,
+      isLoading: dataLoading || authLoading, // Combined loading state
+      user, // Pass user down
+      authLoading, // Pass authLoading down
     }),
     [
       judges,
@@ -179,8 +288,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       events,
       page,
       currentEvent,
-      isLoading,
+      dataLoading, // Use combined state
+      authLoading,
       showToast,
+      user,
     ],
   );
 
@@ -190,7 +301,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         <ToastContainer toasts={toasts} removeToast={removeToast} />
         <main className="mx-auto max-w-7xl p-4 py-6 pt-0">
           <Navbar />
-          <div className="h-full pt-26">{children}</div>
+          <div className="z-20 h-full pt-26">{children}</div>
         </main>
       </div>
     </AppContext.Provider>
