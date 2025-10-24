@@ -73,8 +73,8 @@ export interface AppContextType {
   setCurrentEventId: (id: string | null) => void;
   showToast: (message: string, type?: ToastType) => void;
   isLoading: boolean;
-  user: User | null; // <-- ADDED USER
-  authLoading: boolean; // <-- ADDED AUTH LOADING STATE
+  user: User | null;
+  authLoading: boolean;
 }
 // --- End Type Definitions ---
 

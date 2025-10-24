@@ -13,14 +13,14 @@ const ReviewedJudgeCircle = ({ judge, review }: ReviewedJudgeCircleProps) => {
   const judgeColor = getColorForJudge(judge.id);
 
   // Defines the border color for each rank. Bronze is now a clearer orange.
-  const rankBorders: { [key: number]: string } = {
+  const rankBorders: Record<number, string> = {
     1: "border-amber-400", // Gold
     2: "border-slate-300", // Silver
     3: "border-orange-600", // Bronze
     0: "border-zinc-500", // Unranked
   };
 
-  const rankText: { [key: number]: string } = {
+  const rankText: Record<number, string> = {
     1: "1st Place",
     2: "2nd Place",
     3: "3rd Place",

@@ -15,23 +15,21 @@ const ScoreEntryForm = ({
   onBack: () => void;
 }) => {
   const { teams, judges, currentEvent, showToast } = useAppContext();
-  const [rankings, setRankings] = useState<{
-    [teamId: string]: Review["rank"];
-  }>({});
+  const [rankings, setRankings] = useState<Record<string, Review["rank"]>>({});
   const [isLoading, setIsLoading] = useState(false);
 
   const judge = useMemo(
     () => judges.find((j) => j.id === assignment.judgeId),
     [judges, assignment],
   );
-  const assignedTeams = useMemo(
-    () =>
-      assignment.teamIds
-        .map((id) => teams.find((p) => p.id === id))
-        .filter((p): p is Team => !!p)
-        .sort((a, b) => a.number - b.number),
-    [assignment, teams],
-  );
+  const assignedTeams = useMemo<Team[]>(() => {
+    const ids = Array.isArray(assignment.teamIds) ? assignment.teamIds : [];
+    const allTeams = Array.isArray(teams) ? teams : [];
+    return ids
+      .map((id) => allTeams.find((p) => p.id === id))
+      .filter((p): p is Team => !!p)
+      .sort((a, b) => a.number - b.number);
+  }, [assignment, teams]);
 
   // New logic to handle exclusive podium ranks
   const handleRankSelect = (teamId: string, rank: Review["rank"]) => {
@@ -64,7 +62,7 @@ const ScoreEntryForm = ({
   const handleSubmit = async () => {
     setIsLoading(true);
     const batch = writeBatch(db);
-    const scores: { [key in Review["rank"]]: number } = {
+    const scores: Record<Review["rank"], number> = {
       0: 0,
       1: 3,
       2: 2,
@@ -111,14 +109,15 @@ const ScoreEntryForm = ({
   };
 
   // --- Styling and Content for Rank Buttons ---
-  const rankInfo: {
-    [key in Review["rank"]]: {
+  const rankInfo: Record<
+    Review["rank"],
+    {
       label: string;
       icon: React.ReactNode;
       selected: string;
       base: string;
-    };
-  } = {
+    }
+  > = {
     1: {
       label: "1st",
       icon: <Trophy className="size-4" />,

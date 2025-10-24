@@ -25,7 +25,7 @@ const ScoreDetailModal = ({
     if (!editingReview || !currentEvent) return;
     setIsSaving(true);
 
-    const scores: { [key in Review["rank"]]: number } = {
+    const scores: Record<Review["rank"], number> = {
       0: 0,
       1: 3,
       2: 2,
@@ -52,6 +52,7 @@ const ScoreDetailModal = ({
       showToast("Review updated!", "success");
       setEditingReview(null);
     } catch (error) {
+      console.error("Error updating review:", error);
       showToast("Error updating review.", "error");
     } finally {
       setIsSaving(false);
@@ -112,7 +113,7 @@ const ScoreDetailModal = ({
                               <div
                                 className={`h-2 w-2 rounded-full ${getColorForJudge(review.judgeId)}`}
                               ></div>
-                              <span>{judge?.name || "Unknown"}</span>
+                              <span>{judge?.name ?? "Unknown"}</span>
                             </div>
                             <div className="flex space-x-2">
                               {[1, 2, 3, 0].map((r) => (
@@ -158,7 +159,7 @@ const ScoreDetailModal = ({
                           <div
                             className={`h-2 w-2 rounded-full ${getColorForJudge(review.judgeId)}`}
                           ></div>
-                          <span>{judge?.name || "Unknown"}</span>
+                          <span>{judge?.name ?? "Unknown"}</span>
                         </div>
                         <div className="flex items-center gap-4">
                           <span className="font-bold">

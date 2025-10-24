@@ -605,7 +605,9 @@ const AdminPanel = () => {
               </Card>
 
               {/* --- DND ZONES --- */}
-              <div className="flex flex-col gap-4">
+              <div
+                className={`flex h-full flex-col ${floors.length === 0 ? "" : "gap-4"}`}
+              >
                 <DroppableZone
                   id="unassigned"
                   title={`Unassigned (${unassignedJudges.length})`}

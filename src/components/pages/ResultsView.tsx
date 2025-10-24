@@ -9,7 +9,7 @@ import {
   FileDown,
   List,
   LayoutGrid,
-  Minus, // <-- Added Minus icon
+  Minus,
 } from "lucide-react";
 import { useAppContext } from "../../context/AppContext";
 import type { Team, Floor, Judge, Assignment } from "../../lib/types";
@@ -32,7 +32,7 @@ const SORT_OPTIONS = [
   { value: "number", label: "Sort by Team Number" },
 ];
 
-// --- [UPDATED] Review Matrix Component ---
+// --- Review Matrix Component ---
 const ReviewMatrix = ({
   teams,
   judges,
@@ -170,6 +170,43 @@ const ReviewMatrix = ({
   );
 };
 
+// --- [NEW] Skeleton Component ---
+const SkeletonRow = () => (
+  <div className="flex items-center space-x-4 px-4 py-4">
+    <div className="h-5 w-20 rounded-md bg-zinc-800"></div>
+    <div className="h-5 flex-1 rounded-md bg-zinc-800"></div>
+    <div className="h-5 w-24 rounded-md bg-zinc-800"></div>
+    <div className="h-5 w-24 rounded-md bg-zinc-800"></div>
+    <div className="h-5 w-24 rounded-md bg-zinc-800"></div>
+    <div className="h-5 w-24 rounded-md bg-zinc-800"></div>
+    <div className="h-5 w-24 rounded-md bg-zinc-800"></div>
+    <div className="h-5 w-24 rounded-md bg-zinc-800"></div>
+  </div>
+);
+
+const LeaderboardSkeleton = () => (
+  <div className="animate-pulse">
+    {/* Skeleton Header */}
+    <div className="flex items-center space-x-4 border-b border-zinc-800 bg-zinc-800/90 px-4 py-3">
+      <div className="h-3 w-20 rounded-md bg-zinc-700"></div>
+      <div className="h-3 flex-1 rounded-md bg-zinc-700"></div>
+      <div className="h-3 w-24 rounded-md bg-zinc-700"></div>
+      <div className="h-3 w-24 rounded-md bg-zinc-700"></div>
+      <div className="h-3 w-24 rounded-md bg-zinc-700"></div>
+      <div className="h-3 w-24 rounded-md bg-zinc-700"></div>
+      <div className="h-3 w-24 rounded-md bg-zinc-700"></div>
+      <div className="h-3 w-24 rounded-md bg-zinc-700"></div>
+    </div>
+    {/* Skeleton Body */}
+    <div className="divide-y divide-zinc-800 bg-zinc-900/80">
+      <SkeletonRow />
+      <SkeletonRow />
+      <SkeletonRow />
+    </div>
+  </div>
+);
+// --- End Skeleton Component ---
+
 // --- Main Results View ---
 const ResultsView = () => {
   const { teams, floors, judges, assignments } = useAppContext();
@@ -241,7 +278,6 @@ const ResultsView = () => {
           break;
         }
         case "lowScore": {
-          // --- THIS IS THE FIX ---
           const scoresA = getScores(a);
           const scoresB = getScores(b);
           // Teams with no scores have a low score of Infinity
@@ -249,7 +285,6 @@ const ResultsView = () => {
           const lowB = scoresB.length ? Math.min(...scoresB) : Infinity;
           primaryDiff = lowA - lowB; // Sorts in ascending order
           break;
-          // --- END FIX ---
         }
         case "number":
           primaryDiff = (a.number ?? 0) - (b.number ?? 0);
@@ -300,19 +335,26 @@ const ResultsView = () => {
     }
   };
 
-  // --- [NEW] Better Empty State ---
+  // --- [UPDATED] Empty State ---
   if (!teams || teams.length === 0) {
     return (
-      <MotionCard>
-        <div className="flex flex-col items-center justify-center gap-4 p-12 text-center">
-          <Trophy className="size-16 text-zinc-700" />
-          <h3 className="text-2xl font-bold text-orange-400">No Results Yet</h3>
-          <p className="max-w-xs text-zinc-400">
-            Results will appear here once teams have been created and judging
-            has begun.
-          </p>
-        </div>
-      </MotionCard>
+      <>
+        <MotionCard>
+          <div className="flex flex-col items-center justify-center gap-4 p-12 text-center">
+            <Trophy className="size-16 text-zinc-700" />
+            <h3 className="text-2xl font-bold text-orange-400">
+              No Results Yet
+            </h3>
+            <p className="max-w-xs text-zinc-400">
+              Results will appear here once teams have been created and judging
+              has begun.
+            </p>
+          </div>
+          <div className="mt-4 overflow-hidden rounded-xl border-t border-zinc-800">
+            <LeaderboardSkeleton />
+          </div>
+        </MotionCard>
+      </>
     );
   }
 
