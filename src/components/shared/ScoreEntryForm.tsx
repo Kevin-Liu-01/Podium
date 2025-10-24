@@ -14,7 +14,8 @@ const ScoreEntryForm = ({
   assignment: Assignment;
   onBack: () => void;
 }) => {
-  const { teams, judges, currentEvent, showToast } = useAppContext();
+  // 1. Get 'user' from context
+  const { teams, judges, currentEvent, showToast, user } = useAppContext();
   const [rankings, setRankings] = useState<{
     [teamId: string]: Review["rank"];
   }>({});
@@ -61,9 +62,17 @@ const ScoreEntryForm = ({
     });
   };
 
+  // 2. [FIXED] handleSubmit to use correct user-centric paths
   const handleSubmit = async () => {
+    if (!user || !currentEvent) {
+      showToast("Error: No user or event selected.", "error");
+      return;
+    }
     setIsLoading(true);
+
     const batch = writeBatch(db);
+    // 3. Define the correct base path
+    const basePath = `users/${user.uid}/events/${currentEvent.id}`;
     const scores: { [key in Review["rank"]]: number } = {
       0: 0,
       1: 3,
@@ -80,19 +89,21 @@ const ScoreEntryForm = ({
       };
       const newReviewedBy = [...team.reviewedBy, newReview];
       const newTotalScore = team.totalScore + scores[rank];
-      batch.update(doc(db, `events/${currentEvent!.id}/teams`, team.id), {
+      // 4. Update team doc with correct path
+      batch.update(doc(db, `${basePath}/teams`, team.id), {
         reviewedBy: newReviewedBy,
         totalScore: newTotalScore,
         averageScore: newTotalScore / newReviewedBy.length,
       });
     });
 
-    batch.update(
-      doc(db, `events/${currentEvent!.id}/assignments`, assignment.id),
-      { submitted: true },
-    );
+    // 5. Update assignment doc with correct path
+    batch.update(doc(db, `${basePath}/assignments`, assignment.id), {
+      submitted: true,
+    });
     if (judge) {
-      batch.update(doc(db, `events/${currentEvent!.id}/judges`, judge.id), {
+      // 6. Update judge doc with correct path
+      batch.update(doc(db, `${basePath}/judges`, judge.id), {
         currentAssignmentId: "",
         completedAssignments: (judge.completedAssignments || 0) + 1,
       });

@@ -13,12 +13,12 @@ import {
 } from "lucide-react";
 import { useAppContext } from "../../context/AppContext";
 import type { Team, Floor, Judge, Assignment } from "../../lib/types";
-import { staggerContainer, fadeInUp } from "../../lib/animations";
-import { Card } from "../ui/Card";
+import { staggerContainer, fadeInUp } from "../../lib/animations"; // Make sure path is correct
+import { Card } from "../ui/Card"; // Make sure paths are correct
 import { CustomDropdown } from "../ui/CustomDropdown";
 import { Input } from "../ui/Input";
-import ScoreDetailModal from "../shared/ScoreDetailModal";
-import MotionCard from "../ui/MotionCard";
+import ScoreDetailModal from "../shared/ScoreDetailModal"; // Make sure path is correct
+import MotionCard from "../ui/MotionCard"; // Make sure path is correct
 import { Button } from "../ui/Button";
 
 // --- HELPER TYPES & CONSTANTS ---
@@ -32,7 +32,7 @@ const SORT_OPTIONS = [
   { value: "number", label: "Sort by Team Number" },
 ];
 
-// --- Review Matrix Component ---
+// --- Review Matrix Component (Now with Animations) ---
 const ReviewMatrix = ({
   teams,
   judges,
@@ -42,13 +42,11 @@ const ReviewMatrix = ({
   judges: Judge[];
   assignments: Assignment[];
 }) => {
-  // 1. Create a map for quick lookup: Map<teamId, Set<judgeId>>
   const reviewMap = useMemo(() => {
     const map = new Map<string, Set<string>>();
     for (const team of teams) {
       map.set(team.id, new Set());
     }
-
     const submittedAssignments = assignments.filter((a) => a.submitted);
     for (const assignment of submittedAssignments) {
       const judgeId = assignment.judgeId;
@@ -61,7 +59,6 @@ const ReviewMatrix = ({
     return map;
   }, [teams, assignments]);
 
-  // 2. Get sorted lists of teams and judges
   const sortedTeams = useMemo(
     () => [...teams].sort((a, b) => a.number - b.number),
     [teams],
@@ -71,106 +68,80 @@ const ReviewMatrix = ({
     [judges],
   );
 
-  // 3. Handle CSV Export
-  const handleExportCSV = () => {
-    const headers = ["Team #", "Team Name", ...sortedJudges.map((j) => j.name)];
-    let csvContent = headers.join(",") + "\n";
-
-    for (const team of sortedTeams) {
-      const row = [team.number, `"${team.name.replace(/"/g, '""')}"`];
-      const reviewedBy = reviewMap.get(team.id) || new Set();
-      for (const judge of sortedJudges) {
-        row.push(reviewedBy.has(judge.id) ? "1" : "0");
-      }
-      csvContent += row.join(",") + "\n";
-    }
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", "review_matrix.csv");
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   return (
-    <MotionCard>
-      <div className="flex items-center justify-between border-b border-zinc-800 px-4 pb-4">
-        <h2 className="text-xl font-bold">Judge Review Matrix</h2>
-        <Button
-          onClick={handleExportCSV}
-          className="bg-gradient-to-br from-orange-500 to-orange-600 transition-all duration-150 hover:from-orange-600 hover:to-orange-700"
+    // Removed outer MotionCard, handled by ResultsView now
+    <div className="overflow-x-auto rounded-xl border border-zinc-700">
+      <table className="min-w-full divide-y divide-zinc-800 text-center">
+        <thead className="bg-zinc-800/90">
+          <tr>
+            <th className="sticky left-0 z-10 w-16 truncate bg-zinc-800 px-3 py-3 text-center text-xs font-semibold tracking-wider text-zinc-400 uppercase">
+              Team #
+            </th>
+            <th className="sticky left-16 z-10 min-w-[200px] bg-zinc-800 px-3 py-3 text-left text-xs font-semibold tracking-wider text-zinc-400 uppercase">
+              Team Name
+            </th>
+            {sortedJudges.map((judge) => (
+              <th
+                key={judge.id}
+                className="px-3 py-3 text-center text-xs font-semibold tracking-wider text-zinc-400 uppercase"
+              >
+                <div
+                  className="flex w-full items-center justify-center"
+                  title={judge.name}
+                >
+                  <span className="w-20 truncate text-center">
+                    {judge.name}
+                  </span>
+                </div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        {/* Animated tbody */}
+        <motion.tbody
+          className="divide-y divide-zinc-800 bg-zinc-900/80"
+          variants={staggerContainer}
+          initial="initial"
+          animate="animate"
         >
-          <FileDown className="mr-2 size-4" /> Download Matrix as CSV
-        </Button>
-      </div>
-      <div className="overflow-x-auto rounded-xl border border-zinc-700">
-        <table className="min-w-full divide-y divide-zinc-800 text-center">
-          <thead className="bg-zinc-800/90">
-            <tr>
-              <th className="sticky left-0 z-10 w-16 truncate bg-zinc-800 px-3 py-3 text-center text-xs font-semibold tracking-wider text-zinc-400 uppercase">
-                Team #
-              </th>
-              <th className="sticky left-16 z-10 min-w-[200px] bg-zinc-800 px-3 py-3 text-center text-xs font-semibold tracking-wider text-zinc-400 uppercase">
-                Team Name
-              </th>
-              {sortedJudges.map((judge) => (
-                <th
-                  key={judge.id}
-                  className="px-3 py-3 text-center text-xs font-semibold tracking-wider text-zinc-400 uppercase"
-                >
-                  <div
-                    className="flex w-full items-center justify-center"
-                    title={judge.name}
+          {sortedTeams.map((team) => {
+            const reviewedBy = reviewMap.get(team.id) || new Set();
+            return (
+              // Animated tr
+              <motion.tr
+                key={team.id}
+                variants={fadeInUp}
+                layout // Added layout for smooth transitions if data changes
+                className="transition-colors hover:bg-zinc-800/60"
+              >
+                <td className="sticky left-0 z-10 bg-inherit px-3 py-3 text-sm font-medium whitespace-nowrap text-zinc-300">
+                  {team.number}
+                </td>
+                <td className="sticky left-16 z-10 bg-inherit px-3 py-3 text-left text-sm font-semibold whitespace-nowrap text-white">
+                  {team.name}
+                </td>
+                {sortedJudges.map((judge) => (
+                  <td
+                    key={judge.id}
+                    className="px-3 py-3 text-center whitespace-nowrap"
                   >
-                    <span className="w-20 truncate text-center">
-                      {judge.name}
-                    </span>
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-800 bg-zinc-900/80">
-            {sortedTeams.map((team) => {
-              const reviewedBy = reviewMap.get(team.id) || new Set();
-              return (
-                <tr
-                  key={team.id}
-                  className="transition-colors hover:bg-zinc-800/60"
-                >
-                  <td className="sticky left-0 z-10 bg-zinc-900/80 px-3 py-3 text-sm font-medium whitespace-nowrap text-zinc-300">
-                    {team.number}
+                    {reviewedBy.has(judge.id) ? (
+                      <Check className="mx-auto size-5 text-emerald-400" />
+                    ) : (
+                      <Minus className="mx-auto size-5 text-zinc-700" />
+                    )}
                   </td>
-                  <td className="sticky left-16 z-10 bg-zinc-900/80 px-3 py-3 text-sm font-semibold whitespace-nowrap text-white">
-                    {team.name}
-                  </td>
-                  {sortedJudges.map((judge) => (
-                    <td
-                      key={judge.id}
-                      className="px-3 py-3 text-center whitespace-nowrap"
-                    >
-                      {reviewedBy.has(judge.id) ? (
-                        <Check className="mx-auto size-5 text-emerald-400" />
-                      ) : (
-                        <Minus className="mx-auto size-5 text-zinc-700" />
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </MotionCard>
+                ))}
+              </motion.tr>
+            );
+          })}
+        </motion.tbody>
+      </table>
+    </div>
   );
 };
 
-// --- [NEW] Skeleton Component ---
+// --- Skeleton Components (Unchanged) ---
 const SkeletonRow = () => (
   <div className="flex items-center space-x-4 px-4 py-4">
     <div className="h-5 w-20 rounded-md bg-zinc-800"></div>
@@ -186,7 +157,6 @@ const SkeletonRow = () => (
 
 const LeaderboardSkeleton = () => (
   <div className="animate-pulse">
-    {/* Skeleton Header */}
     <div className="flex items-center space-x-4 border-b border-zinc-800 bg-zinc-800/90 px-4 py-3">
       <div className="h-3 w-20 rounded-md bg-zinc-700"></div>
       <div className="h-3 flex-1 rounded-md bg-zinc-700"></div>
@@ -197,7 +167,6 @@ const LeaderboardSkeleton = () => (
       <div className="h-3 w-24 rounded-md bg-zinc-700"></div>
       <div className="h-3 w-24 rounded-md bg-zinc-700"></div>
     </div>
-    {/* Skeleton Body */}
     <div className="divide-y divide-zinc-800 bg-zinc-900/80">
       <SkeletonRow />
       <SkeletonRow />
@@ -205,9 +174,9 @@ const LeaderboardSkeleton = () => (
     </div>
   </div>
 );
-// --- End Skeleton Component ---
+// --- End Skeleton Components ---
 
-// --- Main Results View ---
+// --- Main Results View (Updated) ---
 const ResultsView = () => {
   const { teams, floors, judges, assignments } = useAppContext();
   const [sortBy, setSortBy] = useState<SortKey>("averageScore");
@@ -227,21 +196,18 @@ const ResultsView = () => {
 
   const rankMap = useMemo(() => {
     const validTeams = Array.isArray(teams) ? teams : [];
-
     const teamsSortedForRanking = [...validTeams].sort((a, b) => {
       const scoreDiff = (b.averageScore ?? 0) - (a.averageScore ?? 0);
       if (scoreDiff !== 0) return scoreDiff;
       return (a.number ?? 0) - (b.number ?? 0);
     });
-
     const map = new Map<string, number>();
-    teamsSortedForRanking.forEach((team, index) => {
-      map.set(team.id, index);
-    });
+    teamsSortedForRanking.forEach((team, index) => map.set(team.id, index));
     return map;
   }, [teams]);
 
   const filteredAndSortedTeams = useMemo(() => {
+    // ... filtering and sorting logic remains the same ...
     const validTeams = Array.isArray(teams) ? teams : [];
     let processedTeams = validTeams;
 
@@ -271,7 +237,6 @@ const ResultsView = () => {
         case "highScore": {
           const scoresA = getScores(a);
           const scoresB = getScores(b);
-          // Teams with no scores have a high score of 0
           const highA = scoresA.length ? Math.max(...scoresA) : 0;
           const highB = scoresB.length ? Math.max(...scoresB) : 0;
           primaryDiff = highB - highA;
@@ -280,10 +245,9 @@ const ResultsView = () => {
         case "lowScore": {
           const scoresA = getScores(a);
           const scoresB = getScores(b);
-          // Teams with no scores have a low score of Infinity
           const lowA = scoresA.length ? Math.min(...scoresA) : Infinity;
           const lowB = scoresB.length ? Math.min(...scoresB) : Infinity;
-          primaryDiff = lowA - lowB; // Sorts in ascending order
+          primaryDiff = lowA - lowB;
           break;
         }
         case "number":
@@ -296,7 +260,6 @@ const ResultsView = () => {
       if (primaryDiff === 0) {
         return (a.number ?? 0) - (b.number ?? 0);
       }
-
       return primaryDiff;
     });
 
@@ -304,8 +267,8 @@ const ResultsView = () => {
   }, [teams, searchQuery, floorFilter, sortBy]);
 
   const getRankIcon = (rank: number) => {
+    // ... getRankIcon logic remains the same ...
     const rankNum = rank + 1;
-
     switch (rank) {
       case 0:
         return (
@@ -335,7 +298,102 @@ const ResultsView = () => {
     }
   };
 
-  // --- [UPDATED] Empty State ---
+  // --- CSV Export Functions ---
+  const handleExportLeaderboardCSV = () => {
+    const headers = [
+      "Rank",
+      "Team Name",
+      "Team #",
+      "Floor",
+      "Reviews",
+      "High Score",
+      "Low Score",
+      "Average Score",
+    ];
+    let csvContent = headers.join(",") + "\n";
+
+    for (const team of filteredAndSortedTeams) {
+      const rank = rankMap.get(team.id);
+      const rankDisplay = typeof rank !== "undefined" ? rank + 1 : "N/A";
+      const floorName = floorMap.get(team.floorId)?.name || "N/A";
+      const scores = team.reviewedBy?.map((r) => r.score) || [];
+      const high = scores.length ? Math.max(...scores).toFixed(2) : "N/A";
+      const low = scores.length ? Math.min(...scores).toFixed(2) : "N/A";
+      const avg = (team.averageScore ?? 0).toFixed(2);
+      const reviews = team.reviewedBy?.length ?? 0;
+
+      // Escape commas in team name
+      const teamNameEscaped = `"${team.name.replace(/"/g, '""')}"`;
+
+      const row = [
+        rankDisplay,
+        teamNameEscaped,
+        team.number,
+        floorName,
+        reviews,
+        high,
+        low,
+        avg,
+      ];
+      csvContent += row.join(",") + "\n";
+    }
+
+    triggerCSVDownload(csvContent, "leaderboard_results.csv");
+  };
+
+  const handleExportMatrixCSV = () => {
+    const sortedTeamsForMatrix = [...teams].sort((a, b) => a.number - b.number);
+    const sortedJudgesForMatrix = [...judges].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+    const reviewMap = new Map<string, Set<string>>();
+
+    for (const team of sortedTeamsForMatrix) {
+      reviewMap.set(team.id, new Set());
+    }
+    const submittedAssignments = assignments.filter((a) => a.submitted);
+    for (const assignment of submittedAssignments) {
+      const judgeId = assignment.judgeId;
+      for (const teamId of assignment.teamIds) {
+        if (reviewMap.has(teamId)) {
+          reviewMap.get(teamId)!.add(judgeId);
+        }
+      }
+    }
+
+    const headers = [
+      "Team #",
+      "Team Name",
+      ...sortedJudgesForMatrix.map((j) => j.name),
+    ];
+    let csvContent = headers.join(",") + "\n";
+
+    for (const team of sortedTeamsForMatrix) {
+      const row = [team.number, `"${team.name.replace(/"/g, '""')}"`];
+      const reviewedBy = reviewMap.get(team.id) || new Set();
+      for (const judge of sortedJudgesForMatrix) {
+        row.push(reviewedBy.has(judge.id) ? "1" : "0");
+      }
+      csvContent += row.join(",") + "\n";
+    }
+
+    triggerCSVDownload(csvContent, "review_matrix.csv");
+  };
+
+  const triggerCSVDownload = (csvContent: string, filename: string) => {
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+  // --- End CSV Export Functions ---
+
+  // Empty State
   if (!teams || teams.length === 0) {
     return (
       <>
@@ -361,29 +419,33 @@ const ResultsView = () => {
   return (
     <div className="space-y-6">
       <MotionCard className="z-20">
-        <div className="mb-4 flex flex-col items-center justify-between gap-4 md:flex-row">
+        <div className="mb-4 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
           <h1 className="text-3xl font-bold text-white">Final Results</h1>
-          {/* --- View Mode Toggle --- */}
-          <div className="flex w-full rounded-lg border border-zinc-800 bg-zinc-950/50 p-1 md:w-auto">
-            <Button
-              onClick={() => setViewMode("leaderboard")}
-              className={`w-1/2 md:w-auto ${viewMode === "leaderboard" ? "bg-orange-600" : "bg-transparent"}`}
-              size="sm"
-            >
-              <List className="mr-2 size-4" /> Leaderboard
-            </Button>
-            <Button
-              onClick={() => setViewMode("matrix")}
-              className={`w-1/2 md:w-auto ${viewMode === "matrix" ? "bg-orange-600" : "bg-transparent"}`}
-              size="sm"
-            >
-              <LayoutGrid className="mr-2 size-4" /> Review Matrix
-            </Button>
+          <div className="flex w-full flex-col items-stretch gap-2 md:w-auto md:flex-row md:items-center">
+            {/* View Mode Toggle */}
+            <div className="flex flex-shrink-0 rounded-lg border border-zinc-800 bg-zinc-950/50 p-1">
+              <Button
+                onClick={() => setViewMode("leaderboard")}
+                className={`flex-1 md:w-auto ${viewMode === "leaderboard" ? "bg-orange-600" : "bg-transparent text-zinc-400 hover:text-white"}`}
+                size="sm"
+              >
+                <List className="mr-2 size-4" /> Leaderboard
+              </Button>
+              <Button
+                onClick={() => setViewMode("matrix")}
+                className={`flex-1 md:w-auto ${viewMode === "matrix" ? "bg-orange-600" : "bg-transparent text-zinc-400 hover:text-white"}`}
+                size="sm"
+              >
+                <LayoutGrid className="mr-2 size-4" /> Matrix
+              </Button>
+            </div>
           </div>
         </div>
 
-        {/* --- Filters --- */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {/* Filters */}
+        <div
+          className={`grid grid-cols-1 gap-4 md:grid-cols-3 ${viewMode === "matrix" ? "pointer-events-none opacity-50" : ""}`}
+        >
           <div className="relative md:col-span-3">
             <Search className="absolute top-1/2 left-3 size-5 -translate-y-1/2 text-zinc-500" />
             <Input
@@ -392,6 +454,7 @@ const ResultsView = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10"
+              disabled={viewMode === "matrix"}
             />
           </div>
           <CustomDropdown
@@ -399,19 +462,33 @@ const ResultsView = () => {
             onChange={(val) => setFloorFilter(val as string)}
             options={floorOptions}
             placeholder="Filter by floor..."
-            disabled={viewMode === "matrix"} // Disable filters for matrix view
+            disabled={viewMode === "matrix"}
           />
           <CustomDropdown
             value={sortBy}
             onChange={(val) => setSortBy(val as SortKey)}
             options={SORT_OPTIONS}
             placeholder="Sort by..."
-            disabled={viewMode === "matrix"} // Disable filters for matrix view
+            disabled={viewMode === "matrix"}
           />
         </div>
+        {/* Dynamic Download Button */}
+        <Button
+          onClick={
+            viewMode === "leaderboard"
+              ? handleExportLeaderboardCSV
+              : handleExportMatrixCSV
+          }
+          className="absolute right-4 bottom-4.5 ml-auto w-full flex-shrink-0 bg-gradient-to-br from-blue-600 to-blue-700 py-2 text-sm transition-all duration-150 hover:from-blue-700 hover:to-blue-800 md:w-auto"
+          size="sm" // Match size with toggle buttons
+        >
+          <FileDown className="size-4" />
+          {viewMode === "leaderboard" ? "Leaderboard CSV" : "Matrix CSV"}
+        </Button>
       </MotionCard>
 
-      {/* --- Conditional View --- */}
+      {/* Conditional View */}
+      {/* Wrap the view content in MotionCard for consistent styling */}
       {viewMode === "leaderboard" ? (
         <>
           <div className="overflow-x-auto rounded-lg border border-zinc-800">
@@ -424,7 +501,7 @@ const ResultsView = () => {
                   <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-zinc-400 uppercase">
                     Team Name
                   </th>
-                  <th className="text-zinc-4D0 w-24 px-4 py-3 text-center text-xs font-semibold tracking-wider uppercase">
+                  <th className="w-24 px-4 py-3 text-center text-xs font-semibold tracking-wider text-zinc-400 uppercase">
                     Team #
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-semibold tracking-wider text-zinc-400 uppercase">
@@ -452,10 +529,8 @@ const ResultsView = () => {
                 {filteredAndSortedTeams.map((team) => {
                   const floor = floorMap.get(team.floorId);
                   const rank = rankMap.get(team.id);
-
                   const scores = team.reviewedBy?.map((r) => r.score) || [];
                   const high = scores.length ? Math.max(...scores) : 0;
-                  // Use Infinity for low score if no scores exist
                   const low = scores.length ? Math.min(...scores) : Infinity;
 
                   return (
@@ -487,7 +562,6 @@ const ResultsView = () => {
                         {high.toFixed(2)}
                       </td>
                       <td className="px-4 py-3 text-center text-sm font-medium text-purple-400">
-                        {/* Show 'N/A' if low is Infinity, else show the number */}
                         {low === Infinity ? "N/A" : low.toFixed(2)}
                       </td>
                       <td className="px-4 py-3 text-center text-base font-bold text-teal-400">
@@ -499,9 +573,10 @@ const ResultsView = () => {
               </motion.tbody>
             </table>
           </div>
-
           {filteredAndSortedTeams.length === 0 && (
-            <Card>
+            <Card className="mt-4">
+              {" "}
+              {/* Add margin if table is empty */}
               <p className="text-center text-zinc-400">
                 No teams match the current filters.
               </p>
@@ -509,6 +584,7 @@ const ResultsView = () => {
           )}
         </>
       ) : (
+        // Pass data to ReviewMatrix
         <ReviewMatrix teams={teams} judges={judges} assignments={assignments} />
       )}
 

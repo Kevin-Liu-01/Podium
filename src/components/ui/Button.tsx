@@ -33,7 +33,7 @@ export const Button = ({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`flex transform items-center justify-center gap-2 rounded-lg font-bold transition-all duration-300 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none disabled:hover:translate-y-0 ${sizeStyles[size]} ${className} `}
+      className={`flex transform cursor-pointer items-center justify-center gap-2 rounded-lg font-bold transition-all duration-300 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none disabled:hover:translate-y-0 ${sizeStyles[size]} ${className} `}
     >
       {children}
     </button>

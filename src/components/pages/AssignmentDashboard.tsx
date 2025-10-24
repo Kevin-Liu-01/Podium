@@ -1,3 +1,4 @@
+// pages/AssignmentDashboard.tsx
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -23,182 +24,19 @@ import {
   PlusIcon,
   UserMinus,
 } from "lucide-react";
-import { db } from "../../firebase/config";
-import { useAppContext } from "../../context/AppContext";
-import type { Assignment, Judge, Team, Floor } from "../../lib/types";
-import { Card } from "../ui/Card";
+import { db } from "../../firebase/config"; // Ensure path is correct
+import { useAppContext } from "../../context/AppContext"; // Ensure path is correct
+import type { Assignment, Judge, Team, Floor } from "../../lib/types"; // Ensure path is correct
+import { Card } from "../ui/Card"; // Ensure paths are correct
 import MotionCard from "../ui/MotionCard";
 import { Button } from "../ui/Button";
 import { CustomDropdown } from "../ui/CustomDropdown";
 import { Input } from "../ui/Input";
-import ScoreEntryForm from "../shared/ScoreEntryForm";
+import ScoreEntryForm from "../shared/ScoreEntryForm"; // Ensure path is correct
 import Tooltip from "../ui/Tooltip";
+import JudgeDetailsModal from "../shared/JudgeDetailsModal"; // <--- Import shared modal
 
-// --- [NEW] Judge Details Modal Component ---
-const JudgeDetailsModal = ({
-  judge,
-  details,
-  assignment,
-  onClose,
-  onSwitchFloor,
-  onRemoveAssignment,
-  floors,
-  currentFloorId,
-  isSwitchingFloor,
-}: {
-  judge: Judge;
-  details: { completedTeams: Team[]; currentTeams: Team[] };
-  assignment: Assignment | undefined;
-  onClose: () => void;
-  onSwitchFloor: (judgeId: string, newFloorId: string) => void;
-  onRemoveAssignment: (assignmentId: string, judgeId: string) => void;
-  floors: Floor[];
-  currentFloorId: string;
-  isSwitchingFloor: boolean;
-}) => {
-  const [targetFloorId, setTargetFloorId] = useState("");
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.9, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.9, y: 20 }}
-        onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg rounded-xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl"
-      >
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="text-xl font-bold">{judge.name}</h3>
-            <p className="text-sm text-zinc-400">Detailed View</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-zinc-500 transition-colors hover:text-white"
-          >
-            <XCircle className="size-6" />
-          </button>
-        </div>
-
-        <div className="mt-6 space-y-6 border-t border-zinc-800 pt-6">
-          {/* Current Assignment */}
-          {assignment && (
-            <div>
-              <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-300">
-                <ChevronsRight className="size-4 text-amber-400" />
-                Currently Evaluating
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {details.currentTeams.map((t) => (
-                  <span
-                    key={t.id}
-                    className="rounded bg-amber-900/50 px-2 py-1 text-xs font-medium text-amber-300"
-                  >
-                    {t.name}
-                  </span>
-                ))}
-              </div>
-              <div className="mt-4">
-                <Tooltip
-                  content="Permanently removes this active assignment. This cannot be undone."
-                  position="right"
-                >
-                  <Button
-                    onClick={() => onRemoveAssignment(assignment.id, judge.id)}
-                    variant="destructive"
-                    size="sm"
-                    className="flex items-center gap-2"
-                  >
-                    <XCircle className="size-4" />
-                    Cancel Assignment
-                  </Button>
-                </Tooltip>
-              </div>
-            </div>
-          )}
-
-          {/* Completed Teams */}
-          {details?.completedTeams.length > 0 && (
-            <div>
-              <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-300">
-                <History className="size-4 text-emerald-400" />
-                Completed Teams ({details.completedTeams.length})
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {details.completedTeams.map((t) => (
-                  <span
-                    key={t.id}
-                    className="rounded bg-emerald-900/50 px-2 py-1 text-xs font-medium text-emerald-300"
-                  >
-                    {t.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Floor Switching Logic */}
-          {!assignment && (
-            <div>
-              <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-300">
-                <ChevronsRight className="size-4 text-sky-400" />
-                Move Judge
-              </h4>
-              {judge.hasSwitchedFloors ? (
-                <Tooltip
-                  content="This judge has already moved from their original floor."
-                  position="right"
-                >
-                  <span className="rounded-full bg-zinc-700 px-3 py-1 text-sm font-semibold text-zinc-300">
-                    Already Switched Floors
-                  </span>
-                </Tooltip>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <CustomDropdown
-                    value={targetFloorId}
-                    onChange={setTargetFloorId}
-                    options={floors
-                      .filter((f) => f.id !== currentFloorId)
-                      .map((f) => ({ value: f.id, label: f.name }))}
-                    placeholder="Select destination..."
-                  />
-                  <Tooltip
-                    content="Move this judge to the selected floor. This can only be done once."
-                    position="right"
-                  >
-                    <div>
-                      <Button
-                        onClick={() => onSwitchFloor(judge.id, targetFloorId)}
-                        disabled={!targetFloorId || isSwitchingFloor}
-                        size="sm"
-                        className="flex w-32 items-center justify-center bg-sky-600 hover:bg-sky-500"
-                      >
-                        {isSwitchingFloor ? (
-                          <Loader2 className="size-4 animate-spin" />
-                        ) : (
-                          "Switch Floor"
-                        )}
-                      </Button>
-                    </div>
-                  </Tooltip>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-};
-
-// --- [REFACTORED] Judge List Item Component ---
+// --- Judge List Item Component ---
 const JudgeListItem = ({
   judge,
   status,
@@ -227,7 +65,6 @@ const JudgeListItem = ({
       className: "bg-sky-500/10 text-sky-400 border-sky-500/20",
     },
   };
-
   const { Icon, label, className } = statusConfig[status];
 
   return (
@@ -266,7 +103,6 @@ const JudgeListItem = ({
 
 // --- Main Dashboard Component ---
 const AssignmentDashboard = () => {
-  // Get 'user' from context
   const { judges, teams, assignments, floors, currentEvent, showToast, user } =
     useAppContext();
 
@@ -277,26 +113,19 @@ const AssignmentDashboard = () => {
   );
   const [isAssigning, setIsAssigning] = useState(false);
   const [selectedFloorId, setSelectedFloorId] = useState("");
-
-  // Auto Mode State
   const [autoSelectedJudgeIds, setAutoSelectedJudgeIds] = useState<string[]>(
     [],
   );
-
-  // Manual Mode State
   const [manualSelectedJudgeId, setManualSelectedJudgeId] = useState("");
   const [manualSelectedTeamIds, setManualSelectedTeamIds] = useState<string[]>(
     [],
   );
   const [teamSearch, setTeamSearch] = useState("");
-
-  // Judge Status UI State
   const [judgeSearch, setJudgeSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<
     "all" | "busy" | "assignable" | "finished"
   >("all");
-  const [viewingJudge, setViewingJudge] = useState<Judge | null>(null);
-  const [isSwitchingFloor, setIsSwitchingFloor] = useState(false); // <-- [FIX] State for loading indicator
+  const [viewingJudge, setViewingJudge] = useState<Judge | null>(null); // State to control modal
 
   // Memoized data maps for performance
   const teamMap = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
@@ -314,7 +143,7 @@ const AssignmentDashboard = () => {
         status: "busy" | "assignable" | "finished";
       }
     >();
-    if (!selectedFloorId) return details;
+    if (!selectedFloorId || !judges || !teams || !assignments) return details; // Add checks for data
 
     const allSubmitted = assignments.filter((a) => a.submitted);
     const allCurrent = assignments.filter((a) => !a.submitted);
@@ -403,7 +232,7 @@ const AssignmentDashboard = () => {
   }, [teams, selectedFloorId, teamSearch]);
 
   const manualJudgedTeamIds = useMemo(() => {
-    if (!manualSelectedJudgeId) return new Set();
+    if (!manualSelectedJudgeId) return new Set<string>(); // Specify type
     return new Set(
       assignments
         .filter((a) => a.judgeId === manualSelectedJudgeId && a.submitted)
@@ -436,13 +265,13 @@ const AssignmentDashboard = () => {
     } else {
       setManualSelectedJudgeId("");
     }
-  }, [selectedFloorId, assignableJudges, manualSelectedJudgeId]);
+  }, [selectedFloorId, assignableJudges]); // Removed manualSelectedJudgeId
 
   useEffect(() => {
     setManualSelectedTeamIds([]);
   }, [manualSelectedJudgeId]);
 
-  // Handler functions
+  // --- Handlers ---
   const handleToggleJudge = (judgeId: string) =>
     setAutoSelectedJudgeIds((p) =>
       p.includes(judgeId) ? p.filter((id) => id !== judgeId) : [...p, judgeId],
@@ -451,7 +280,6 @@ const AssignmentDashboard = () => {
     setManualSelectedTeamIds((p) =>
       p.includes(teamId) ? p.filter((id) => id !== teamId) : [...p, teamId],
     );
-
   const toggleSelectAllJudges = () => {
     const allIds = assignableJudges.map((j) => j.id);
     setAutoSelectedJudgeIds(
@@ -459,16 +287,20 @@ const AssignmentDashboard = () => {
     );
   };
 
-  // --- [FIXED] handleSwitchFloor function with new path ---
   const handleSwitchFloor = async (judgeId: string, newFloorId: string) => {
     const judge = judges.find((j) => j.id === judgeId);
-    if (!currentEvent || !user || !judge) return;
-    if (judge.hasSwitchedFloors)
-      return showToast("This judge has already switched floors.", "warning");
-    if (!newFloorId)
-      return showToast("Please select a destination floor.", "error");
-
-    setIsSwitchingFloor(true);
+    if (!currentEvent || !user || !judge) {
+      showToast("Cannot switch floor: missing data.", "error");
+      throw new Error("Missing data for floor switch");
+    }
+    if (judge.hasSwitchedFloors) {
+      showToast("This judge has already switched floors.", "warning");
+      throw new Error("Already switched");
+    }
+    if (!newFloorId) {
+      showToast("Please select a destination floor.", "error");
+      throw new Error("No destination selected");
+    }
     const judgeRef = doc(
       db,
       `users/${user.uid}/events/${currentEvent.id}/judges`,
@@ -480,28 +312,22 @@ const AssignmentDashboard = () => {
         hasSwitchedFloors: true,
       });
       showToast(`${judge.name} moved successfully.`, "success");
-      setViewingJudge(null); // <-- Close modal on success
     } catch (error) {
       showToast("Failed to switch floor.", "error");
-    } finally {
-      setIsSwitchingFloor(false); // <-- Stop loading indicator
+      console.error("Floor switch error:", error);
+      throw error; // Re-throw error so modal can handle finally state
     }
   };
 
-  // --- [FIXED] handleRemoveAssignment function with new path ---
   const handleRemoveAssignment = async (
     assignmentId: string,
     judgeId: string,
   ) => {
-    if (!currentEvent || !user) return;
-    if (
-      !window.confirm(
-        "Are you sure you want to remove this active assignment? This cannot be undone.",
-      )
-    ) {
-      return;
+    if (!currentEvent || !user) {
+      showToast("Cannot remove assignment: missing data.", "error");
+      throw new Error("Missing data");
     }
-    setIsAssigning(true);
+    // Confirmation handled by modal
     try {
       const batch = writeBatch(db);
       const assignmentRef = doc(
@@ -514,46 +340,37 @@ const AssignmentDashboard = () => {
         `users/${user.uid}/events/${currentEvent.id}/judges`,
         judgeId,
       );
-
       batch.delete(assignmentRef);
       batch.update(judgeRef, { currentAssignmentId: null });
-
       await batch.commit();
       showToast("Assignment successfully removed.", "success");
-      setViewingJudge(null);
     } catch (error) {
       console.error("Failed to remove assignment:", error);
       showToast("An error occurred while removing the assignment.", "error");
-    } finally {
-      setIsAssigning(false);
+      throw error; // Re-throw error
     }
   };
 
-  // --- [FIXED] generateAssignments function with new path ---
   const generateAssignments = async () => {
     if (!currentEvent || !user) return;
     if (autoSelectedJudgeIds.length === 0)
       return showToast("Please select at least one judge.", "error");
     if (!selectedFloorId) return showToast("Please select a floor.", "error");
     setIsAssigning(true);
-
     try {
       const allTeamsOnFloor = teams
         .filter((t) => t.floorId === selectedFloorId)
         .sort((a, b) => a.number - b.number);
       const allSubmittedAssignments = assignments.filter((a) => a.submitted);
       const activeAssignments = assignments.filter((a) => !a.submitted);
-
       const globallyLockedTeamIds = new Set(
         activeAssignments.flatMap((a) => a.teamIds),
       );
-
       const selectedJudgesList = autoSelectedJudgeIds
         .map((id) => judges.find((j) => j.id === id))
         .filter((j): j is Judge => !!j);
-
-      const newAssignmentsToCreate = [];
-      const failedAssignments = [];
+      const newAssignmentsToCreate: { judge: Judge; teams: Team[] }[] = [];
+      const failedAssignments: { judgeName: string; reason: string }[] = [];
 
       for (const judge of selectedJudgesList) {
         const alreadyJudgedIds = new Set(
@@ -561,7 +378,6 @@ const AssignmentDashboard = () => {
             .filter((a) => a.judgeId === judge.id)
             .flatMap((a) => a.teamIds),
         );
-
         const candidateTeams = allTeamsOnFloor.filter(
           (team) =>
             !alreadyJudgedIds.has(team.id) &&
@@ -584,7 +400,6 @@ const AssignmentDashboard = () => {
         for (let i = 0; i <= candidateTeams.length - 5; i++) {
           const window = candidateTeams.slice(i, i + 5);
           if (window[4].number - window[0].number > 15) continue;
-
           const pressureScore = window.reduce(
             (sum, team) => sum + team.reviewedBy.length,
             0,
@@ -594,7 +409,6 @@ const AssignmentDashboard = () => {
             bestAssignment = window;
           }
         }
-
         // Pass 2: Relaxed search (if needed)
         if (bestAssignment === null) {
           lowestPressureScore = Infinity;
@@ -645,7 +459,6 @@ const AssignmentDashboard = () => {
         );
         setAutoSelectedJudgeIds([]);
       }
-
       if (failedAssignments.length > 0) {
         const failureSummary = failedAssignments
           .map((f) => `${f.judgeName} (${f.reason})`)
@@ -654,13 +467,15 @@ const AssignmentDashboard = () => {
           duration: 8000,
         });
       }
-
       if (
         newAssignmentsToCreate.length === 0 &&
         failedAssignments.length === 0 &&
         autoSelectedJudgeIds.length > 0
       ) {
-        showToast("Selected judges could not be assigned.", "info");
+        showToast(
+          "Selected judges could not be assigned (no suitable teams found or teams locked).",
+          "info",
+        );
       }
     } catch (error) {
       console.error("Failed to generate assignments:", error);
@@ -670,7 +485,6 @@ const AssignmentDashboard = () => {
     }
   };
 
-  // --- [FIXED] createManualAssignment function with new path ---
   const createManualAssignment = async () => {
     if (!currentEvent || !user) return;
     if (!manualSelectedJudgeId)
@@ -704,7 +518,7 @@ const AssignmentDashboard = () => {
     }
   };
 
-  // Render Logic
+  // --- Render Logic ---
   if (!currentEvent) {
     return (
       <MotionCard>
@@ -712,20 +526,21 @@ const AssignmentDashboard = () => {
           <AlertTriangle className="size-12 text-amber-500" />
           <h3 className="text-xl font-bold">No Event Selected</h3>
           <p className="text-zinc-400">
-            Please select an event from the sidebar to manage assignments.
+            Please select an event to manage assignments.
           </p>
         </div>
       </MotionCard>
     );
   }
 
-  if (assignmentToScore)
+  if (assignmentToScore) {
     return (
       <ScoreEntryForm
         assignment={assignmentToScore}
         onBack={() => setAssignmentToScore(null)}
       />
     );
+  }
 
   const StatusFilterButton = ({
     value,
@@ -750,30 +565,25 @@ const AssignmentDashboard = () => {
 
   return (
     <>
-      <AnimatePresence>
-        {viewingJudge && (
-          <JudgeDetailsModal
-            judge={viewingJudge}
-            details={judgeDetailsMap.get(viewingJudge.id)!}
-            assignment={
-              viewingJudge.currentAssignmentId
-                ? assignmentMap.get(viewingJudge.currentAssignmentId)
-                : undefined
-            }
-            onClose={() => setViewingJudge(null)}
-            onSwitchFloor={handleSwitchFloor}
-            onRemoveAssignment={handleRemoveAssignment}
-            floors={floors}
-            currentFloorId={selectedFloorId}
-            isSwitchingFloor={isSwitchingFloor}
-          />
-        )}
-      </AnimatePresence>
+      {/* Updated Modal Call */}
+      <JudgeDetailsModal
+        isOpen={!!viewingJudge}
+        judge={viewingJudge}
+        assignments={assignments}
+        teams={teams}
+        floors={floors}
+        onClose={() => setViewingJudge(null)}
+        onSwitchFloor={handleSwitchFloor}
+        onRemoveAssignment={handleRemoveAssignment}
+        // currentFloorId={selectedFloorId} // Prop removed/optional
+      />
 
       <div className="grid h-full grid-cols-1 gap-4 lg:grid-cols-2">
         {/* --- LEFT COLUMN: CONTROLS --- */}
         <div className="flex flex-col gap-4">
           <MotionCard className="z-20">
+            {" "}
+            {/* Floor Selector */}
             <label className="mb-2 block font-semibold">
               Viewing & Assigning on Floor
             </label>
@@ -782,18 +592,20 @@ const AssignmentDashboard = () => {
               onChange={setSelectedFloorId}
               options={floors.map((f) => ({ value: f.id, label: f.name }))}
               placeholder={
-                floors.length > 0
-                  ? "Select a floor to manage"
-                  : "No floors created"
+                floors.length > 0 ? "Select a floor..." : "No floors created"
               }
               disabled={floors.length === 0}
             />
           </MotionCard>
           <Card className="z-10 flex h-full flex-col">
+            {" "}
+            {/* Mode Toggle and Content */}
             <div className="flex border-b border-zinc-700">
+              {" "}
+              {/* Mode Buttons */}
               <Tooltip
                 position="bottom"
-                content="Automatically assign judges to teams based on algorithm."
+                content="Auto-assign based on algorithm."
               >
                 <button
                   onClick={() => setMode("auto")}
@@ -802,10 +614,7 @@ const AssignmentDashboard = () => {
                   <SlidersHorizontal className="size-4" /> Auto Generator
                 </button>
               </Tooltip>
-              <Tooltip
-                position="bottom"
-                content="Manually select a judge and team(s) to create an assignment."
-              >
+              <Tooltip position="bottom" content="Manually assign judges.">
                 <button
                   onClick={() => setMode("manual")}
                   className={`flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-semibold transition-colors ${mode === "manual" ? "border-b-2 border-orange-500 text-orange-500" : "text-zinc-400 hover:text-white"}`}
@@ -815,6 +624,7 @@ const AssignmentDashboard = () => {
               </Tooltip>
             </div>
             <AnimatePresence mode="wait">
+              {/* Mode Content */}
               <motion.div
                 key={mode}
                 initial={{ opacity: 0, y: 10 }}
@@ -869,8 +679,8 @@ const AssignmentDashboard = () => {
                           ))
                         ) : (
                           <p className="flex h-full flex-col items-center justify-center gap-2 pt-4 text-center text-sm text-zinc-500 italic">
-                            <UserMinus className="mr-2 size-6" />
-                            No assignable judges.
+                            <UserMinus className="mr-2 size-6" /> No assignable
+                            judges.
                           </p>
                         )}
                       </div>
@@ -953,9 +763,7 @@ const AssignmentDashboard = () => {
                                   </span>
                                 </Tooltip>
                               ) : (
-                                <span className="text-xs text-zinc-400">
-                                  {`Reviews: ${team.reviewedBy.length}`}
-                                </span>
+                                <span className="text-xs text-zinc-400">{`Reviews: ${team.reviewedBy.length}`}</span>
                               )}
                             </label>
                           );
@@ -988,12 +796,16 @@ const AssignmentDashboard = () => {
           </Card>
         </div>
 
-        {/* --- [IMPROVED] RIGHT COLUMN: JUDGE STATUS --- */}
+        {/* --- RIGHT COLUMN: JUDGE STATUS --- */}
         <MotionCard className="flex h-full max-h-[calc(100vh-8rem)] flex-col">
           <div className="pb-0">
+            {" "}
+            {/* Header: Title, Search, Filters */}
             <h2 className="text-xl font-bold">Judge Status Dashboard</h2>
             <div className="mt-4 space-y-3">
               <div className="relative">
+                {" "}
+                {/* Search */}
                 <Search className="absolute top-1/2 left-3 size-5 -translate-y-1/2 text-zinc-500" />
                 <Input
                   type="text"
@@ -1004,6 +816,8 @@ const AssignmentDashboard = () => {
                 />
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                {" "}
+                {/* Filters */}
                 <StatusFilterButton
                   value="all"
                   label="All"
@@ -1035,8 +849,9 @@ const AssignmentDashboard = () => {
               </div>
             </div>
           </div>
-
           <div className="custom-scrollbar mt-4 h-full flex-1 space-y-2 overflow-y-auto">
+            {" "}
+            {/* Judge List */}
             <AnimatePresence>
               {filteredJudges.length > 0 ? (
                 filteredJudges.map((judge) => {
@@ -1047,7 +862,7 @@ const AssignmentDashboard = () => {
                       key={judge.id}
                       judge={judge}
                       status={details.status}
-                      onViewDetails={() => setViewingJudge(judge)}
+                      onViewDetails={() => setViewingJudge(judge)} // Open modal here
                       onEnterScores={() => {
                         const assignment = assignmentMap.get(
                           judge.currentAssignmentId!,
@@ -1059,6 +874,8 @@ const AssignmentDashboard = () => {
                 })
               ) : (
                 <MotionCard className="flex h-full flex-col items-center justify-center text-center">
+                  {" "}
+                  {/* Empty State */}
                   <XCircle className="size-8 text-zinc-600" />
                   <p className="mt-2 font-semibold text-zinc-400">
                     No Judges Found
