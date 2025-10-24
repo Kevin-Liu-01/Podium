@@ -669,7 +669,7 @@ const TeamSetup = () => {
 
                     <textarea
                       id="bulkImport"
-                      className="flex min-h-[150px] w-full rounded-md border border-zinc-700 bg-zinc-900/50 px-3 py-2 font-mono text-sm text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-2 focus-visible:ring-orange-600 focus-visible:ring-offset-0 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex min-h-[150px] w-full rounded-md border border-zinc-700/80 bg-zinc-950/50 px-3 py-2 font-mono text-sm text-zinc-100 placeholder:text-zinc-500 hover:border-zinc-600 focus-visible:ring-2 focus-visible:ring-orange-600 focus-visible:ring-offset-0 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                       placeholder={
                         importMode === "manual"
                           ? "101,Team Rocket\n102:Team Aqua\n103-Team Magma"
@@ -760,7 +760,7 @@ const TeamSetup = () => {
         <div className="h-full lg:col-span-2">
           <Card className="h-[calc(100vh-9.15rem)] overflow-y-auto">
             <div className="sticky top-[-1rem] z-10 mt-[-1rem] mb-2 flex items-center justify-between py-2">
-              <h2 className="pt-1 text-xl font-bold text-zinc-100">
+              <h2 className="pt-2 text-xl font-bold text-zinc-100">
                 Current Teams ({teams.length})
               </h2>
             </div>

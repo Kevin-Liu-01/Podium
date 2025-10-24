@@ -109,12 +109,12 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
       <h2 className={`mb-3 text-lg font-semibold ${color}`}>
         {title} ({judgeList.length})
       </h2>
-      <div className="max-h-40 space-y-2 overflow-y-auto pr-2">
+      <div className="grid max-h-40 grid-cols-1 gap-2 overflow-y-auto pr-2 sm:grid-cols-2">
         {judgeList.length > 0 ? (
           judgeList.map((judge) => (
             <div
               key={judge.id}
-              className="flex items-center gap-3 rounded-md bg-zinc-800 p-2 text-sm"
+              className="flex items-center gap-3 rounded-md border border-zinc-700/50 bg-zinc-800 p-2 text-sm"
             >
               <span
                 className={`h-2 w-2 flex-shrink-0 rounded-full ${getColorForJudge(judge.id)}`}
@@ -123,7 +123,7 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
             </div>
           ))
         ) : (
-          <p className="py-8 text-center text-sm text-zinc-500 italic">
+          <p className="flex h-full w-full items-center justify-center text-center text-sm text-zinc-500 italic sm:col-span-2">
             No judges in this category.
           </p>
         )}
@@ -177,7 +177,7 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
                   return (
                     <div
                       key={judge.id}
-                      className="flex items-center justify-between gap-3 rounded-xl bg-zinc-800 p-2 text-sm"
+                      className="flex items-center justify-between gap-3 rounded-xl border border-zinc-700/50 bg-zinc-800 p-2 text-sm"
                     >
                       <div className="flex items-center gap-3">
                         <span

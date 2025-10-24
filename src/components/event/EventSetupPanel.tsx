@@ -326,7 +326,7 @@ const EventSetupPanel = () => {
 
   return (
     <>
-      <div className="space-y-12 p-4 md:p-8">
+      <div className="space-y-12 py-4 sm:py-8">
         <div className="text-center">
           <div className="flex items-center justify-center gap-4">
             {/* Using Podium Logo when logged in too */}

@@ -21,7 +21,7 @@ const MotionCard = ({ children, className = "", onClick }: MotionCardProps) => (
       {/* Orange radial glow on hover */}
       {/* <div className="absolute top-0 left-0 -z-10 h-full w-full bg-[radial-gradient(circle_at_50%_120%,rgba(249,115,22,0.15),rgba(249,115,22,0)_50%)] opacity-0 transition-opacity duration-500 group-hover:opacity-100"></div> */}
       {/* Sweeping metallic glint on hover */}
-      <div className="absolute top-0 left-[-110%] h-full w-1/2 -skew-x-45 bg-white/5 transition-all duration-700 group-hover:left-[160%]"></div>
+      <div className="absolute top-0 left-[-130%] h-full w-1/2 -skew-x-45 bg-white/5 transition-all duration-700 group-hover:left-[180%]"></div>
     </div>
     {/* The card's actual content */}
     {children}

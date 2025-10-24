@@ -791,7 +791,10 @@ const AssignmentDashboard = () => {
           </MotionCard>
           <Card className="z-10 flex h-full flex-col">
             <div className="flex border-b border-zinc-700">
-              <Tooltip content="Automatically assign judges to teams based on algorithm.">
+              <Tooltip
+                position="bottom"
+                content="Automatically assign judges to teams based on algorithm."
+              >
                 <button
                   onClick={() => setMode("auto")}
                   className={`flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-semibold transition-colors ${mode === "auto" ? "border-b-2 border-orange-500 text-orange-500" : "text-zinc-400 hover:text-white"}`}
@@ -799,7 +802,10 @@ const AssignmentDashboard = () => {
                   <SlidersHorizontal className="size-4" /> Auto Generator
                 </button>
               </Tooltip>
-              <Tooltip content="Manually select a judge and team(s) to create an assignment.">
+              <Tooltip
+                position="bottom"
+                content="Manually select a judge and team(s) to create an assignment."
+              >
                 <button
                   onClick={() => setMode("manual")}
                   className={`flex w-full items-center justify-center gap-2 px-4 py-3 text-sm font-semibold transition-colors ${mode === "manual" ? "border-b-2 border-orange-500 text-orange-500" : "text-zinc-400 hover:text-white"}`}
