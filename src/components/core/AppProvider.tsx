@@ -1,96 +1,33 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
-import { auth, db } from "../../firebase/config";
+import {
+  collection,
+  onSnapshot,
+  query,
+  orderBy,
+  Query,
+} from "firebase/firestore";
+import { auth, db } from "../../firebase/config"; // Ensure path is correct
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { AppContext } from "../../context/AppContext";
-import Navbar from "./Navbar";
-import ToastContainer from "../toast/ToastContainer";
-import type { Timestamp } from "firebase/firestore"; // Import Timestamp
+import { AppContext } from "../../context/AppContext"; // Ensure path is correct
+import Navbar from "./Navbar"; // Ensure path is correct
+import ToastContainer from "../toast/ToastContainer"; // Ensure path is correct
 
-// --- Type Definitions ---
-export interface Team {
-  id: string;
-  name: string;
-  number: number;
-  floorId: string;
-  reviewedBy: Review[]; // Use Review type
-  totalScore: number;
-  averageScore: number;
-}
-
-// Added Review Type
-export interface Review {
-  judgeId: string;
-  score: number;
-  rank: 0 | 1 | 2 | 3; // 0 for unranked, 1 for 1st, etc.
-}
-
-export interface Judge {
-  id: string;
-  name: string;
-  floorId?: string;
-  currentAssignmentId?: string;
-  completedAssignments: number;
-  hasSwitchedFloors: boolean;
-}
-
-export interface Floor {
-  id: string;
-  name: string;
-  index: number;
-  teamNumberStart: number;
-  teamNumberEnd: number;
-}
-
-export interface Assignment {
-  id: string;
-  judgeId: string;
-  teamIds: string[];
-  submitted: boolean;
-  createdAt: Timestamp; // Use Firebase Timestamp type
-  floorId: string;
-}
-
-export interface Event {
-  id: string;
-  name: string;
-  createdAt: Timestamp; // Use Firebase Timestamp type
-  ownerId?: string;
-}
-
-// --- [MODIFIED] Page Type ---
-// Broadened to include string for floor IDs
-export type Page = "admin" | "teams" | "assignments" | "results" | string;
-
-export type ToastType = "info" | "success" | "warning" | "error";
-export interface Toast {
-  id: number;
-  message: string;
-  type: ToastType;
-}
-
-export interface AppContextType {
-  judges: Judge[];
-  teams: Team[];
-  assignments: Assignment[];
-  floors: Floor[];
-  events: Event[];
-  page: Page;
-  setPage: (page: Page) => void;
-  currentEvent: Event | null;
-  setCurrentEventId: (id: string | null) => void;
-  showToast: (
-    message: string,
-    type?: ToastType,
-    options?: { duration?: number },
-  ) => void; // Added options
-  isLoading: boolean;
-  user: User | null;
-  authLoading: boolean;
-}
-// --- End Type Definitions ---
+// Import ALL shared types from the single source of truth
+import type {
+  Team,
+  Judge,
+  Floor,
+  Assignment,
+  Event,
+  Project,
+  Room,
+  Page,
+  Toast,
+  ToastType,
+  AppContextType,
+} from "../../lib/types"; // Adjust path as needed
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   // --- Auth State ---
@@ -101,16 +38,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [events, setEvents] = useState<Event[]>([]);
   const [currentEventId, setCurrentEventId] = useState<string | null>(null);
   const [judges, setJudges] = useState<Judge[]>([]);
-  const [teams, setTeams] = useState<Team[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]); // Keep setTeams accessible
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [page, setPage] = useState<Page>("admin");
   const [dataLoading, setDataLoading] = useState(true);
 
   // --- Toast State ---
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  // Updated showToast to accept options like duration
   const showToast = useCallback(
     (
       message: string,
@@ -119,15 +57,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     ) => {
       const id = Date.now();
       setToasts((prev) => [...prev, { id, message, type }]);
-      // Use provided duration or default (e.g., 3000ms)
       setTimeout(() => removeToast(id), options?.duration ?? 3000);
     },
     [],
   );
 
-  const removeToast = (id: number) => {
+  const removeToast = useCallback((id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
+  }, []);
 
   // --- Effect for Auth State ---
   useEffect(() => {
@@ -142,18 +79,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setTeams([]);
         setAssignments([]);
         setFloors([]);
+        setProjects([]);
+        setRooms([]);
         setPage("admin");
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, []); // Runs once on mount
 
   // --- Effect for Fetching User's Events ---
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading) return; // Wait for auth check
 
     if (user) {
-      setDataLoading(true);
       const userEventsCollection = collection(db, "users", user.uid, "events");
       const q = query(userEventsCollection, orderBy("createdAt", "desc"));
 
@@ -161,142 +99,180 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         q,
         (snapshot) => {
           const fetchedEvents = snapshot.docs.map(
-            (doc) => ({ id: doc.id, ...doc.data() }) as Event, // Cast to Event
+            (doc) => ({ id: doc.id, ...doc.data() }) as Event,
           );
           setEvents(fetchedEvents);
+
+          // Clear current event if it's no longer in the fetched list
           if (
             currentEventId &&
             !fetchedEvents.some((e) => e.id === currentEventId)
           ) {
             setCurrentEventId(null);
           }
-          setDataLoading(false);
         },
         (error) => {
           console.error("Error fetching user events:", error);
           showToast("Could not fetch your events.", "error");
-          setDataLoading(false);
+          setEvents([]); // Clear events on error
+          setCurrentEventId(null);
         },
       );
       return () => unsubEvents();
     } else {
+      // User logged out
       setEvents([]);
       setCurrentEventId(null);
-      setDataLoading(false);
     }
-  }, [user, authLoading, currentEventId, showToast]); // Added currentEventId
+  }, [user, authLoading, showToast]); // Dependencies for fetching events list
 
   // --- Effect for Fetching Data for the *Selected* Event ---
   useEffect(() => {
+    // Only fetch if logged in, event selected, and auth check complete
     if (!currentEventId || !user || authLoading) {
-      // Check authLoading here too
+      // Clear data if no event/user or still checking auth
       setJudges([]);
       setTeams([]);
       setAssignments([]);
       setFloors([]);
+      setProjects([]);
+      setRooms([]);
+      // Set loading false *only* if auth is done and we have no user/event
       if (!authLoading) setDataLoading(false);
-      return () => {}; // Return empty cleanup function
+      return () => {}; // Return empty cleanup
     }
 
-    setDataLoading(true);
+    setDataLoading(true); // Start loading when dependencies are valid
     const basePath = `users/${user.uid}/events/${currentEventId}`;
-    const collectionsMap = {
-      judges: collection(db, `${basePath}/judges`),
-      teams: collection(db, `${basePath}/teams`),
-      assignments: collection(db, `${basePath}/assignments`),
-      floors: collection(db, `${basePath}/floors`),
-    };
 
-    const unsubs: (() => void)[] = []; // Store unsubscribe functions
+    // Define collections to listen to
+    const collectionsToListen = [
+      {
+        path: `${basePath}/judges`,
+        setter: setJudges,
+        sortFn: (a: Judge, b: Judge) => a.name.localeCompare(b.name),
+      },
+      {
+        path: `${basePath}/teams`,
+        setter: setTeams,
+        sortFn: (a: Team, b: Team) => a.number - b.number,
+      },
+      { path: `${basePath}/assignments`, setter: setAssignments },
+      {
+        path: `${basePath}/floors`,
+        setter: setFloors,
+        sortFn: (a: Floor, b: Floor) => a.index - b.index,
+      },
+      { path: `${basePath}/projects`, setter: setProjects },
+      { path: `${basePath}/rooms`, setter: setRooms },
+    ];
 
-    const createListener = <T,>(
-      ref: ReturnType<typeof collection>,
-      setter: React.Dispatch<React.SetStateAction<T[]>>,
-      sortFn?: (a: T, b: T) => number,
-    ) => {
-      const q = query(ref); // Apply query if needed, e.g., orderBy
+    const unsubs: (() => void)[] = [];
+    let listenersInitialized = 0;
+    const totalListeners = collectionsToListen.length; // Keep track of total
+
+    collectionsToListen.forEach(({ path, setter, sortFn }) => {
+      const collRef = collection(db, path);
+      const q: Query = query(collRef); // Basic query, add orderBy if needed globally
+
       const unsubscribe = onSnapshot(
         q,
         (snapshot) => {
-          let data = snapshot.docs.map(
-            (doc) => ({ id: doc.id, ...doc.data() }) as T,
-          );
+          // Use a generic type T for sorting, apply specific type during state update
+          let data = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+
           if (sortFn) {
-            data = data.sort(sortFn);
+            // Sort using 'as any' since sortFn expects specific types T, but data is generic here
+            data = data.sort(sortFn as any);
           }
-          setter(data);
+
+          // Apply specific type casting during state update
+          // This assumes the data structure matches the expected type
+          if (path.includes("/judges")) setter(data as Judge[]);
+          else if (path.includes("/teams")) setter(data as Team[]);
+          else if (path.includes("/assignments")) setter(data as Assignment[]);
+          else if (path.includes("/floors")) setter(data as Floor[]);
+          else if (path.includes("/projects")) setter(data as Project[]);
+          else if (path.includes("/rooms")) setter(data as Room[]);
+          else setter(data as any[]); // Fallback with 'as any[]'
+
+          // Check if all listeners have loaded at least once
+          if (listenersInitialized < totalListeners) {
+            listenersInitialized++;
+          }
+          if (listenersInitialized === totalListeners) {
+            setDataLoading(false); // Set loading false only after all have initialized
+          }
         },
         (error) => {
-          console.error(`Error fetching ${ref.path}:`, error);
-          showToast(`Could not fetch data for ${ref.path}.`, "error");
-          // Optionally clear data on error: setter([]);
+          console.error(`Error fetching ${path}:`, error);
+          showToast(
+            `Could not fetch data for ${path.split("/").pop()}.`,
+            "error",
+          );
+          setter([]); // Clear data on error
+
+          // Still count towards initialized listeners even on error to eventually stop loading
+          if (listenersInitialized < totalListeners) {
+            listenersInitialized++;
+          }
+          if (listenersInitialized === totalListeners) {
+            setDataLoading(false);
+          }
         },
       );
       unsubs.push(unsubscribe);
-    };
-
-    createListener<Judge>(collectionsMap.judges, setJudges, (a, b) =>
-      a.name.localeCompare(b.name),
-    );
-    createListener<Team>(
-      collectionsMap.teams,
-      setTeams,
-      (a, b) => a.number - b.number,
-    );
-    createListener<Assignment>(collectionsMap.assignments, setAssignments);
-    createListener<Floor>(
-      collectionsMap.floors,
-      setFloors,
-      (a, b) => a.index - b.index,
-    );
-
-    // Set loading false after setting up listeners (or maybe after first data comes in?)
-    // Let's assume setting up listeners is fast enough.
-    // We need a way to track if *all* listeners have returned data at least once.
-    // For simplicity now, just set loading false after a short delay or in the last listener.
-    const unsubFloors = onSnapshot(collectionsMap.floors, () => {
-      setDataLoading(false); // Set loading false in the last listener callback
     });
-    unsubs.push(unsubFloors);
 
     // Cleanup function
     return () => {
       unsubs.forEach((unsub) => unsub());
     };
-  }, [currentEventId, user, authLoading, showToast]); // Added showToast dependency
+  }, [currentEventId, user, authLoading, showToast]); // Effect dependencies
 
   const currentEvent = useMemo(
     () => events.find((e) => e.id === currentEventId) || null,
     [events, currentEventId],
   );
 
+  // Provide all data states in the context value
   const appContextValue: AppContextType = useMemo(
     () => ({
       judges,
       teams,
+      setTeams, // Provide setTeams
       assignments,
       floors,
+      projects,
+      rooms,
       events,
       page,
       setPage,
       currentEvent,
       setCurrentEventId,
       showToast,
-      isLoading: dataLoading || authLoading,
+      isLoading: dataLoading || authLoading, // Combined loading state
       user,
       authLoading,
     }),
     [
+      // Ensure all state variables used in the object are listed here
       judges,
       teams,
+      setTeams, // Include setTeams in dependency array
       assignments,
       floors,
+      projects,
+      rooms,
       events,
       page,
       currentEvent,
       dataLoading,
       authLoading,
-      showToast, // showToast doesn't change, but include if logic depends on it
+      showToast,
       user,
     ],
   );
@@ -305,10 +281,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     <AppContext.Provider value={appContextValue}>
       <div className="min-h-screen font-sans text-zinc-200">
         <ToastContainer toasts={toasts} removeToast={removeToast} />
-        <main className="mx-auto max-w-7xl p-4 py-6 pt-0">
+        <main className="z-20 mx-auto max-w-7xl px-4 pt-0 pb-6">
           <Navbar />
-          {/* Ensure Navbar doesn't overlap content */}
-          <div className="z-20 h-full pt-24 md:pt-28 lg:pt-32">{children}</div>
+          <div className="z-20 h-full pt-24 md:pt-28">{children}</div>
         </main>
       </div>
     </AppContext.Provider>

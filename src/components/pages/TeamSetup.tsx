@@ -681,17 +681,25 @@ const TeamSetup = () => {
                           )}
                         </motion.div>
                       </AnimatePresence>
-                      <textarea
-                        id="bulkImport"
-                        className="mt-4 flex min-h-[150px] w-full rounded-md border border-zinc-700/80 bg-zinc-950/50 px-3 py-2 font-mono text-sm text-zinc-100 placeholder:text-zinc-500 hover:border-zinc-600 focus-visible:ring-2 focus-visible:ring-orange-600 focus-visible:ring-offset-0 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                        placeholder={
-                          importMode === "manual"
-                            ? "101,Team Rocket\n102:Team Aqua\n103-Team Magma"
-                            : "Team Rocket\nTeam Aqua\nTeam Magma"
-                        }
-                        value={bulkImportData}
-                        onChange={(e) => setBulkImportData(e.target.value)}
-                      />
+                      <motion.div
+                        key={importMode + "textarea"}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <textarea
+                          id="bulkImport"
+                          className="mt-4 flex min-h-[150px] w-full rounded-md border border-zinc-700/80 bg-zinc-950/50 px-3 py-2 font-mono text-sm text-zinc-100 placeholder:text-zinc-500 hover:border-zinc-600 focus-visible:ring-2 focus-visible:ring-orange-600 focus-visible:ring-offset-0 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                          placeholder={
+                            importMode === "manual"
+                              ? "101,Team Rocket\n102:Team Aqua\n103-Team Magma"
+                              : "Team Rocket\nTeam Aqua\nTeam Magma"
+                          }
+                          value={bulkImportData}
+                          onChange={(e) => setBulkImportData(e.target.value)}
+                        />
+                      </motion.div>
                     </div>
                     <div className="mt-auto">
                       {" "}

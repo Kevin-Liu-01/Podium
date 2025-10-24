@@ -12,7 +12,6 @@ import {
   Trash2,
   Users,
   Building2,
-  GripVertical,
   Lock,
   Sparkles,
   Clock,

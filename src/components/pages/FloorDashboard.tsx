@@ -1,7 +1,7 @@
 // pages/FloorDashboard.tsx
 "use client";
 import React, { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion"; // Added AnimatePresence
+import { motion } from "framer-motion"; // Added AnimatePresence
 import { doc, updateDoc, writeBatch } from "firebase/firestore"; // Added Firestore imports
 import { useAppContext } from "../../context/AppContext"; // Ensure path is correct
 import type { Floor, Judge, Team, Assignment } from "../../lib/types"; // Ensure path is correct
@@ -12,16 +12,11 @@ import TeamCard from "../shared/TeamCard"; // Ensure path is correct
 import ScoreDetailModal from "../shared/ScoreDetailModal"; // Ensure path is correct
 import ScoreEntryForm from "../shared/ScoreEntryForm"; // Ensure path is correct
 import { Button } from "../ui/Button"; // Ensure path is correct
-import {
-  PlusIcon,
-  AlertTriangle,
-  Loader2,
-  XCircle,
-  SlidersHorizontal,
-} from "lucide-react"; // Added icons
+import { PlusIcon, SlidersHorizontal, User, Users } from "lucide-react"; // Added icons
 import { db } from "../../firebase/config"; // Added db
 import Tooltip from "../ui/Tooltip"; // Added Tooltip
 import JudgeDetailsModal from "../shared/JudgeDetailsModal"; // <--- Import shared modal
+import { Card } from "../ui/Card";
 
 const FloorDashboard = ({ floor }: { floor: Floor }) => {
   const { teams, judges, assignments, currentEvent, user, floors, showToast } =
@@ -184,7 +179,7 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
     color: string;
     canOpenModal?: boolean;
   }) => (
-    <MotionCard className="h-full">
+    <Card className="h-full">
       <h2 className={`mb-3 text-lg font-semibold ${color}`}>
         {title} ({judgeList.length})
       </h2>
@@ -216,12 +211,13 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
             </Tooltip>
           ))
         ) : (
-          <div className="flex h-full w-full flex-grow items-center justify-center text-center text-sm text-zinc-500 italic sm:col-span-2">
+          <div className="flex w-full flex-col items-center py-8 text-center text-sm text-zinc-500 italic sm:col-span-2">
+            <Users className="mb-2 inline-block size-6" />
             No judges in this category.
           </div>
         )}
       </div>
-    </MotionCard>
+    </Card>
   );
 
   // Score Entry Form Rendering
@@ -306,9 +302,10 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
                   );
                 })
               ) : (
-                <p className="py-8 text-center text-sm text-zinc-500 italic">
+                <div className="flex w-full flex-col items-center py-8 text-center text-sm text-zinc-500 italic">
+                  <Users className="mb-2 inline-block size-6" />
                   No judges are currently out.
-                </p>
+                </div>
               )}
             </div>
           </MotionCard>

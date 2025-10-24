@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { getCountFromServer, collection, Timestamp } from "firebase/firestore";
+import {
+  getCountFromServer,
+  collection,
+  type Timestamp,
+} from "firebase/firestore";
 import {
   Users,
   Server,
@@ -7,7 +11,6 @@ import {
   Trash2,
   Download,
   Loader,
-  Dot,
 } from "lucide-react";
 import { db } from "../../firebase/config";
 import type { Event } from "../../lib/types";
