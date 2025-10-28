@@ -139,11 +139,20 @@ const Navbar = () => {
                 <Trophy className="size-6 text-orange-400 drop-shadow-[0_0_8px_theme(colors.amber.500/0.8)] transition-transform duration-300 group-hover:scale-110 hover:rotate-12" />{" "}
                 {/* Used drop-shadow */}
                 <div className="h-6 w-px bg-white/30"></div>
-                <h1 className="hidden items-center bg-gradient-to-br from-white to-zinc-400 bg-clip-text py-2 pr-3 text-xl font-bold text-transparent sm:flex">
+                <h1
+                  style={{
+                    filter: "drop-shadow(0 0 2px rgba(255, 255, 255, 0.4))",
+                  }}
+                  className="hidden items-center bg-gradient-to-br from-white to-zinc-400 bg-clip-text py-2 pr-3 text-xl font-bold text-transparent sm:flex"
+                >
                   <Image
                     src="/princeton.png" // Ensure this path is correct in your public folder
                     alt="Logo P" // More descriptive alt text
-                    className="mr-1 inline size-4 align-middle" // Added margin-right
+                    className="inline size-[1rem] object-contain align-middle" // Added margin-right
+                    priority={true}
+                    quality={100}
+                    unoptimized={true}
+                    loading="eager"
                     width={16} // Explicit width/height matching size-4
                     height={16}
                   />
