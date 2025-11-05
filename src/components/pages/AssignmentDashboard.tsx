@@ -363,12 +363,33 @@ const AssignmentDashboard = () => {
         .sort((a, b) => a.number - b.number);
       const allSubmittedAssignments = assignments.filter((a) => a.submitted);
       const activeAssignments = assignments.filter((a) => !a.submitted);
+
       const globallyLockedTeamIds = new Set(
         activeAssignments.flatMap((a) => a.teamIds),
       );
+
       const selectedJudgesList = autoSelectedJudgeIds
         .map((id) => judges.find((j) => j.id === id))
         .filter((j): j is Judge => !!j);
+
+      // --- [MODIFIED] ---
+      // We still use pressure maps to FIND the best block
+      const ephemeralPressureMap = new Map<string, number>(
+        allTeamsOnFloor.map((t) => [t.id, t.reviewedBy.length]),
+      );
+
+      // Check for overlap mode
+      const availablePool = allTeamsOnFloor.filter(
+        (team) => !globallyLockedTeamIds.has(team.id),
+      );
+      const numJudgesToAssign = selectedJudgesList.length;
+      const maxExclusiveBlocks = Math.floor(availablePool.length / 5);
+      const isOverlapMode = numJudgesToAssign > maxExclusiveBlocks;
+
+      // [NEW] This Set tracks overlaps *within this batch* to trigger reversal
+      const assignedBlockSignatures = new Set<string>();
+      // --- [END MODIFIED] ---
+
       const newAssignmentsToCreate: { judge: Judge; teams: Team[] }[] = [];
       const failedAssignments: { judgeName: string; reason: string }[] = [];
 
@@ -378,6 +399,7 @@ const AssignmentDashboard = () => {
             .filter((a) => a.judgeId === judge.id)
             .flatMap((a) => a.teamIds),
         );
+
         const candidateTeams = allTeamsOnFloor.filter(
           (team) =>
             !alreadyJudgedIds.has(team.id) &&
@@ -400,34 +422,67 @@ const AssignmentDashboard = () => {
         for (let i = 0; i <= candidateTeams.length - 5; i++) {
           const window = candidateTeams.slice(i, i + 5);
           if (window[4].number - window[0].number > 15) continue;
-          const pressureScore = window.reduce(
-            (sum, team) => sum + team.reviewedBy.length,
+
+          // Check pressure from the ephemeral map
+          const windowEphemeralPressure = window.reduce(
+            (sum, team) => sum + (ephemeralPressureMap.get(team.id) || 0),
             0,
           );
-          if (pressureScore < lowestPressureScore) {
-            lowestPressureScore = pressureScore;
+
+          if (windowEphemeralPressure < lowestPressureScore) {
+            lowestPressureScore = windowEphemeralPressure;
             bestAssignment = window;
           }
         }
+
         // Pass 2: Relaxed search (if needed)
         if (bestAssignment === null) {
           lowestPressureScore = Infinity;
           for (let i = 0; i <= candidateTeams.length - 5; i++) {
             const window = candidateTeams.slice(i, i + 5);
-            const pressureScore = window.reduce(
-              (sum, team) => sum + team.reviewedBy.length,
+            const windowEphemeralPressure = window.reduce(
+              (sum, team) => sum + (ephemeralPressureMap.get(team.id) || 0),
               0,
             );
-            if (pressureScore < lowestPressureScore) {
-              lowestPressureScore = pressureScore;
+
+            if (windowEphemeralPressure < lowestPressureScore) {
+              lowestPressureScore = windowEphemeralPressure;
               bestAssignment = window;
             }
           }
         }
 
         if (bestAssignment) {
-          newAssignmentsToCreate.push({ judge, teams: bestAssignment });
-          bestAssignment.forEach((team) => globallyLockedTeamIds.add(team.id));
+          // --- [NEW LOGIC] ---
+          // Create a unique ID for this block of teams
+          const blockSignature = bestAssignment.map((t) => t.id).join("_");
+          let finalTeams = bestAssignment; // Default to forward order
+
+          // Check if this block is already in our Set
+          if (assignedBlockSignatures.has(blockSignature)) {
+            // This is an overlap! Reverse the array for this judge.
+            finalTeams = [...bestAssignment].reverse();
+          } else {
+            // This is the first time. Add it to the set for next time.
+            assignedBlockSignatures.add(blockSignature);
+          }
+          // --- [END NEW LOGIC] ---
+
+          newAssignmentsToCreate.push({ judge, teams: finalTeams });
+
+          // (Logic from previous step remains)
+          if (isOverlapMode) {
+            // In overlap mode, just update pressure for the next judge
+            for (const team of bestAssignment) {
+              const currentPressure = ephemeralPressureMap.get(team.id) || 0;
+              ephemeralPressureMap.set(team.id, currentPressure + 1);
+            }
+          } else {
+            // In standard (exclusive) mode, lock the teams for this batch
+            bestAssignment.forEach((team) =>
+              globallyLockedTeamIds.add(team.id),
+            );
+          }
         } else {
           failedAssignments.push({
             judgeName: judge.name,
@@ -443,7 +498,7 @@ const AssignmentDashboard = () => {
           const assignmentRef = doc(collection(db, `${basePath}/assignments`));
           batch.set(assignmentRef, {
             judgeId: judge.id,
-            teamIds: teams.map((t) => t.id),
+            teamIds: teams.map((t) => t.id), // `teams` is now correctly ordered
             submitted: false,
             createdAt: Timestamp.now(),
             floorId: selectedFloorId,
@@ -811,7 +866,7 @@ const AssignmentDashboard = () => {
                   type="text"
                   placeholder="Search by judge name..."
                   value={judgeSearch}
-                  onChange={(e) => setJudgeSearch(e.target.value)}
+                  onChange={(e) => setJudgeSearch(e.g.target.value)}
                   className="pl-10"
                 />
               </div>
