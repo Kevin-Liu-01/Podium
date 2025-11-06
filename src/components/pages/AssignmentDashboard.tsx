@@ -1,4 +1,3 @@
-// pages/AssignmentDashboard.tsx
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,13 +7,10 @@ import {
   collection,
   Timestamp,
   updateDoc,
-  deleteDoc, // Import deleteDoc
 } from "firebase/firestore";
 import {
   SlidersHorizontal,
   UserCheck,
-  ChevronsRight,
-  History,
   XCircle,
   AlertTriangle,
   Search,
@@ -27,7 +23,7 @@ import {
 } from "lucide-react";
 import { db } from "../../firebase/config"; // Ensure path is correct
 import { useAppContext } from "../../context/AppContext"; // Ensure path is correct
-import type { Assignment, Judge, Team, Floor } from "../../lib/types"; // Ensure path is correct
+import type { Assignment, Judge, Team } from "../../lib/types"; // Ensure path is correct
 import { Card } from "../ui/Card"; // Ensure paths are correct
 import MotionCard from "../ui/MotionCard";
 import { Button } from "../ui/Button";
@@ -135,6 +131,14 @@ const AssignmentDashboard = () => {
     [assignments],
   );
 
+  // --- [NEW] Memoized list of all active teams on the selected floor ---
+  const allTeamsOnFloor = useMemo(() => {
+    return teams
+      .filter((t) => t.floorId === selectedFloorId && !t.isPaused)
+      .sort((a, b) => a.number - b.number);
+  }, [teams, selectedFloorId]);
+  // ---
+
   const judgeDetailsMap = useMemo(() => {
     const details = new Map<
       string,
@@ -148,10 +152,11 @@ const AssignmentDashboard = () => {
 
     const allSubmitted = assignments.filter((a) => a.submitted);
     const allCurrent = assignments.filter((a) => !a.submitted);
-    // [FEATURE 2] Filter out paused teams
-    const teamsOnFloor = teams
-      .filter((t) => t.floorId === selectedFloorId && !t.isPaused)
-      .sort((a, b) => a.number - b.number);
+
+    // [MODIFIED] Use memoized allTeamsOnFloor
+    // const teamsOnFloor = teams
+    //   .filter((t) => t.floorId === selectedFloorId && !t.isPaused)
+    //   .sort((a, b) => a.number - b.number);
 
     for (const judge of judges) {
       if (judge.floorId !== selectedFloorId) continue;
@@ -164,8 +169,8 @@ const AssignmentDashboard = () => {
       const currentAssignment = allCurrent.find((a) => a.judgeId === judge.id);
       const currentIds = currentAssignment ? currentAssignment.teamIds : [];
 
-      // [FEATURE 2] Candidate teams also filters paused
-      const candidateTeams = teamsOnFloor.filter(
+      // [MODIFIED] Use memoized allTeamsOnFloor
+      const candidateTeams = allTeamsOnFloor.filter(
         (t) => !completedIds.has(t.id),
       );
       let isPossible = false;
@@ -196,7 +201,7 @@ const AssignmentDashboard = () => {
       });
     }
     return details;
-  }, [judges, teams, assignments, selectedFloorId, teamMap]);
+  }, [judges, teams, assignments, selectedFloorId, teamMap, allTeamsOnFloor]); // Added allTeamsOnFloor dependency
 
   const { assignableJudges, judgesOnFloor } = useMemo(() => {
     const onFloor = judges.filter((j) => j.floorId === selectedFloorId);
@@ -225,16 +230,11 @@ const AssignmentDashboard = () => {
 
   const manualModeTeams = useMemo(() => {
     if (!selectedFloorId) return [];
-    return teams
-      .filter(
-        (t) =>
-          // [FEATURE 2] Filter out paused teams
-          t.floorId === selectedFloorId &&
-          !t.isPaused &&
-          t.name.toLowerCase().includes(teamSearch.toLowerCase()),
-      )
-      .sort((a, b) => a.number - b.number);
-  }, [teams, selectedFloorId, teamSearch]);
+    // [MODIFIED] Use memoized allTeamsOnFloor
+    return allTeamsOnFloor.filter((t) =>
+      t.name.toLowerCase().includes(teamSearch.toLowerCase()),
+    );
+  }, [allTeamsOnFloor, selectedFloorId, teamSearch]);
 
   const manualJudgedTeamIds = useMemo(() => {
     if (!manualSelectedJudgeId) return new Set<string>(); // Specify type
@@ -403,10 +403,10 @@ const AssignmentDashboard = () => {
     if (!selectedFloorId) return showToast("Please select a floor.", "error");
     setIsAssigning(true);
     try {
-      // [FEATURE 2] Filter out paused teams
-      const allTeamsOnFloor = teams
-        .filter((t) => t.floorId === selectedFloorId && !t.isPaused)
-        .sort((a, b) => a.number - b.number);
+      // [MODIFIED] Use memoized allTeamsOnFloor
+      // const allTeamsOnFloor = teams
+      //   .filter((t) => t.floorId === selectedFloorId && !t.isPaused)
+      //   .sort((a, b) => a.number - b.number);
       const allSubmittedAssignments = assignments.filter((a) => a.submitted);
       const activeAssignments = assignments.filter((a) => !a.submitted);
 
@@ -443,21 +443,30 @@ const AssignmentDashboard = () => {
             .flatMap((a) => a.teamIds),
         );
 
-        // [FEATURE 2] Filter out paused teams
-        const candidateTeams = allTeamsOnFloor.filter(
-          (team) =>
-            !alreadyJudgedIds.has(team.id) &&
-            !globallyLockedTeamIds.has(team.id),
+        // --- [MODIFIED] More specific failure reasons ---
+        const teamsJudgeCouldSee = allTeamsOnFloor.filter(
+          (team) => !alreadyJudgedIds.has(team.id),
+        );
+        const candidateTeams = teamsJudgeCouldSee.filter(
+          (team) => !globallyLockedTeamIds.has(team.id),
         );
 
-        if (candidateTeams.length < 5) {
-          const reason =
-            allTeamsOnFloor.length - alreadyJudgedIds.size < 5
-              ? "has judged nearly all teams"
-              : "not enough free teams available";
-          failedAssignments.push({ judgeName: judge.name, reason });
+        if (teamsJudgeCouldSee.length < 5) {
+          failedAssignments.push({
+            judgeName: judge.name,
+            reason: "has judged nearly all teams on this floor",
+          });
           continue;
         }
+
+        if (candidateTeams.length < 5) {
+          failedAssignments.push({
+            judgeName: judge.name,
+            reason: "not enough free teams, others are locked by this batch",
+          });
+          continue;
+        }
+        // --- [END MODIFICATION] ---
 
         let bestAssignment: Team[] | null = null;
         let lowestPressureScore = Infinity;
@@ -525,9 +534,10 @@ const AssignmentDashboard = () => {
           }
           // --- End Feature 1 Pressure Update ---
         } else {
+          // [MODIFIED] More specific failure reason
           failedAssignments.push({
             judgeName: judge.name,
-            reason: "no suitable group found",
+            reason: "no suitable group of 5 teams found (check team # ranges)",
           });
         }
       }
@@ -563,16 +573,7 @@ const AssignmentDashboard = () => {
           duration: 8000,
         });
       }
-      if (
-        newAssignmentsToCreate.length === 0 &&
-        failedAssignments.length === 0 &&
-        autoSelectedJudgeIds.length > 0
-      ) {
-        showToast(
-          "Selected judges could not be assigned (no suitable teams found or teams locked).",
-          "info",
-        );
-      }
+      // [REMOVED] Impossible toast condition was removed
     } catch (error) {
       console.error("Failed to generate assignments:", error);
       showToast("An error occurred during assignments.", "error");
@@ -755,24 +756,74 @@ const AssignmentDashboard = () => {
                           </button>
                         </Tooltip>
                       </div>
-                      <div className="custom-scrollbar h-76 space-y-1 overflow-y-auto pr-1">
+                      <div className="custom-scrollbar grid h-76 grid-cols-2 space-y-1 overflow-y-auto pr-1">
                         {assignableJudges.length > 0 ? (
-                          assignableJudges.map((j) => (
-                            <label
-                              key={j.id}
-                              className="flex cursor-pointer items-center space-x-3 rounded p-2 transition-colors hover:bg-zinc-700"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={autoSelectedJudgeIds.includes(j.id)}
-                                onChange={() => handleToggleJudge(j.id)}
-                                className="size-4 cursor-pointer rounded border-zinc-600 bg-zinc-900 text-orange-600 focus:ring-2 focus:ring-orange-500/50"
-                              />
-                              <span className="text-sm font-medium">
-                                {j.name}
-                              </span>
-                            </label>
-                          ))
+                          assignableJudges.map((j) => {
+                            const details = judgeDetailsMap.get(j.id);
+                            const allTeamsOnFloorCount = allTeamsOnFloor.length;
+                            const completedTeams =
+                              details?.completedTeams ?? [];
+                            const completedCount = completedTeams.length;
+                            const tooltipTeams = [...completedTeams].sort(
+                              (a, b) => a.number - b.number,
+                            );
+                            const tooltipContent =
+                              tooltipTeams.length > 0
+                                ? tooltipTeams
+                                    .map((t) => `#${t.number}: ${t.name}`)
+                                    .join("\n")
+                                : "No teams evaluated yet";
+                            const teamNumbersText =
+                              tooltipTeams.length > 0
+                                ? tooltipTeams
+                                    .map((t) => `#${t.number}`)
+                                    .join(", ")
+                                : "";
+
+                            return (
+                              <label
+                                key={j.id}
+                                className="flex h-min cursor-pointer items-start space-x-3 rounded-lg p-2 transition-colors hover:bg-zinc-700"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={autoSelectedJudgeIds.includes(j.id)}
+                                  onChange={() => handleToggleJudge(j.id)}
+                                  className="mt-1 size-4 flex-shrink-0 cursor-pointer rounded border-zinc-600 bg-zinc-900 text-orange-600 focus:ring-2 focus:ring-orange-500/50"
+                                />
+                                <div className="flex-grow">
+                                  <span className="text-sm font-medium">
+                                    {j.name}
+                                  </span>
+                                  {/* --- Stats Display --- */}
+                                  <div className="text-xs text-zinc-400">
+                                    <span className="font-medium text-zinc-300">
+                                      {completedCount} / {allTeamsOnFloorCount}
+                                    </span>{" "}
+                                    teams evaluated
+                                  </div>
+                                  {teamNumbersText && (
+                                    <Tooltip
+                                      content={
+                                        <pre className="text-left">
+                                          {tooltipContent}
+                                        </pre>
+                                      }
+                                      position="bottom"
+                                    >
+                                      <p className="mt-1 max-w-full rounded bg-zinc-700/50 px-1.5 py-0.5 text-xs text-zinc-400">
+                                        <span className="font-semibold text-zinc-300">
+                                          Seen:
+                                        </span>{" "}
+                                        {teamNumbersText}
+                                      </p>
+                                    </Tooltip>
+                                  )}
+                                  {/* --- [END NEW] --- */}
+                                </div>
+                              </label>
+                            );
+                          })
                         ) : (
                           <p className="flex h-full flex-col items-center justify-center gap-2 pt-4 text-center text-sm text-zinc-500 italic">
                             <UserMinus className="mr-2 size-6" /> No assignable
