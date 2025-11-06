@@ -1,3 +1,4 @@
+// shared/JudgeDetailsModal.tsx
 "use client";
 import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -7,6 +8,7 @@ import {
   XCircle,
   Loader2,
   AlertTriangle,
+  X, // Import X
 } from "lucide-react";
 import { useAppContext } from "../../context/AppContext";
 import type { Assignment, Judge, Team, Floor } from "../../lib/types";
@@ -25,6 +27,11 @@ interface JudgeDetailsModalProps {
   // Optional action handlers - parent decides if they are needed
   onSwitchFloor?: (judgeId: string, newFloorId: string) => Promise<void>;
   onRemoveAssignment?: (assignmentId: string, judgeId: string) => Promise<void>;
+  // [FEATURE 3] New prop
+  onRemoveTeamFromAssignment?: (
+    assignmentId: string,
+    teamId: string,
+  ) => Promise<void>;
 }
 
 const JudgeDetailsModal = ({
@@ -36,11 +43,14 @@ const JudgeDetailsModal = ({
   onClose,
   onSwitchFloor,
   onRemoveAssignment,
+  onRemoveTeamFromAssignment, // [FEATURE 3] Get new prop
 }: JudgeDetailsModalProps) => {
   const [targetFloorId, setTargetFloorId] = useState("");
   const [isSwitchingFloor, setIsSwitchingFloor] = useState(false);
   const [isRemovingAssignment, setIsRemovingAssignment] = useState(false); // Loading state for remove
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false); // Confirmation state
+  // [FEATURE 3] State to track which team is being removed
+  const [isRemovingTeam, setIsRemovingTeam] = useState<string | null>(null);
 
   // Internal calculation of team details
   const { completedTeams, currentTeams, currentAssignment } = useMemo(() => {
@@ -119,6 +129,23 @@ const JudgeDetailsModal = ({
     }
   };
 
+  // [FEATURE 3] Handler to remove a single team
+  const handleRemoveTeamClick = async (teamId: string) => {
+    if (!onRemoveTeamFromAssignment || !currentAssignment) return;
+    setIsRemovingTeam(teamId);
+    try {
+      await onRemoveTeamFromAssignment(currentAssignment.id, teamId);
+      // Success is handled by parent toast
+      // If this was the last team, the parent's logic will have
+      // called onRemoveAssignment, and the modal will close via listener
+    } catch (error) {
+      console.error("Error removing team:", error);
+      // Error handled by parent toast
+    } finally {
+      setIsRemovingTeam(null);
+    }
+  };
+
   const currentJudgeFloorId = judge?.floorId ?? ""; // Handle unassigned judge
 
   return (
@@ -166,12 +193,27 @@ const JudgeDetailsModal = ({
                       </h4>
                       {currentTeams.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
+                          {/* [FEATURE 3] Modified team list */}
                           {currentTeams?.map((t) => (
                             <span
                               key={t.id}
-                              className="rounded bg-amber-900/50 px-2 py-1 text-xs font-medium text-amber-300"
+                              className="group relative flex items-center gap-1.5 rounded bg-amber-900/50 py-1 pr-1 pl-2 text-xs font-medium text-amber-300"
                             >
-                              {t.name} (#{t.number}) {/* Added team number */}
+                              {t.name} (#{t.number})
+                              {onRemoveTeamFromAssignment && ( // Only show 'x' if handler exists
+                                <button
+                                  onClick={() => handleRemoveTeamClick(t.id)}
+                                  disabled={isRemovingTeam === t.id}
+                                  className="ml-1 rounded-full p-0.5 text-amber-400/70 opacity-0 transition-all group-hover:opacity-100 hover:bg-rose-500/50 hover:text-white"
+                                  title={`Remove ${t.name}`}
+                                >
+                                  {isRemovingTeam === t.id ? (
+                                    <Loader2 className="size-3 animate-spin" />
+                                  ) : (
+                                    <X className="size-3" />
+                                  )}
+                                </button>
+                              )}
                             </span>
                           ))}
                         </div>
@@ -193,16 +235,15 @@ const JudgeDetailsModal = ({
                               <Button
                                 onClick={handleRemoveAssignmentClick}
                                 disabled={isRemovingAssignment}
-                                variant="destructive"
                                 size="sm"
-                                className="flex items-center gap-2"
+                                className="flex items-center gap-2 bg-red-700 hover:bg-red-800"
                               >
                                 {isRemovingAssignment ? (
                                   <Loader2 className="size-4 animate-spin" />
                                 ) : (
                                   <XCircle className="size-4" />
                                 )}
-                                Cancel Assignment
+                                Cancel Entire Assignment
                               </Button>
                             </div>
                           </Tooltip>

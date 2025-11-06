@@ -10,6 +10,7 @@ import {
   List,
   LayoutGrid,
   Minus,
+  MessageSquare,
 } from "lucide-react";
 import { useAppContext } from "../../context/AppContext";
 import type { Team, Floor, Judge, Assignment } from "../../lib/types";
@@ -32,7 +33,7 @@ const SORT_OPTIONS = [
   { value: "number", label: "Sort by Team Number" },
 ];
 
-// --- Review Matrix Component (Now with Animations) ---
+// --- Review Matrix Component (Unchanged) ---
 const ReviewMatrix = ({
   teams,
   judges,
@@ -69,7 +70,6 @@ const ReviewMatrix = ({
   );
 
   return (
-    // Removed outer MotionCard, handled by ResultsView now
     <div className="overflow-x-auto rounded-xl border border-zinc-700">
       <table className="min-w-full divide-y divide-zinc-800 text-center">
         <thead className="bg-zinc-800/90">
@@ -97,7 +97,6 @@ const ReviewMatrix = ({
             ))}
           </tr>
         </thead>
-        {/* Animated tbody */}
         <motion.tbody
           className="divide-y divide-zinc-800 bg-zinc-900/80"
           variants={staggerContainer}
@@ -107,11 +106,10 @@ const ReviewMatrix = ({
           {sortedTeams.map((team) => {
             const reviewedBy = reviewMap.get(team.id) || new Set();
             return (
-              // Animated tr
               <motion.tr
                 key={team.id}
                 variants={fadeInUp}
-                layout // Added layout for smooth transitions if data changes
+                layout
                 className="transition-colors hover:bg-zinc-800/60"
               >
                 <td className="sticky left-0 z-10 bg-inherit px-3 py-3 text-sm font-medium whitespace-nowrap text-zinc-300">
@@ -188,6 +186,10 @@ const ResultsView = () => {
   const floorMap = useMemo(() => {
     return new Map<string, Floor>(floors.map((floor) => [floor.id, floor]));
   }, [floors]);
+
+  const judgeMap = useMemo(() => {
+    return new Map<string, Judge>(judges.map((judge) => [judge.id, judge]));
+  }, [judges]);
 
   const floorOptions = useMemo(() => {
     const options = floors.map((f) => ({ value: f.id, label: f.name }));
@@ -306,6 +308,8 @@ const ResultsView = () => {
       "Team #",
       "Floor",
       "Reviews",
+      "Comment Count", // [MODIFIED] Renamed for clarity
+      "All Comments", // [MODIFIED] This column will now contain full comments
       "High Score",
       "Low Score",
       "Average Score",
@@ -321,6 +325,24 @@ const ResultsView = () => {
       const low = scores.length ? Math.min(...scores).toFixed(2) : "N/A";
       const avg = (team.averageScore ?? 0).toFixed(2);
       const reviews = team.reviewedBy?.length ?? 0;
+      const commentCount = (team.reviewedBy || []).filter(
+        (r) => r.comments && r.comments.trim() !== "",
+      ).length;
+
+      // [NEW] Get full comments with judge names for CSV
+      const allCommentsString = (team.reviewedBy || [])
+        .filter((r) => r.comments && r.comments.trim() !== "")
+        .map((r) => {
+          const judgeName = judgeMap.get(r.judgeId)?.name || "Unknown";
+          // Format as [Judge]: [Comment]
+          // Escape any quotes inside the comment text itself
+          const commentText = r.comments.replace(/"/g, '""');
+          return `[${judgeName}]: ${commentText}`;
+        })
+        .join("\n"); // Join multiple comments with a newline (Excel/Sheets handles this well)
+
+      // [NEW] Escape the final aggregated string by wrapping it in quotes
+      const allCommentsEscaped = `"${allCommentsString}"`;
 
       // Escape commas in team name
       const teamNameEscaped = `"${team.name.replace(/"/g, '""')}"`;
@@ -331,6 +353,8 @@ const ResultsView = () => {
         team.number,
         floorName,
         reviews,
+        commentCount,
+        allCommentsEscaped, // [MODIFIED] Use the new full comment string
         high,
         low,
         avg,
@@ -342,6 +366,7 @@ const ResultsView = () => {
   };
 
   const handleExportMatrixCSV = () => {
+    // ... (This function remains unchanged) ...
     const sortedTeamsForMatrix = [...teams].sort((a, b) => a.number - b.number);
     const sortedJudgesForMatrix = [...judges].sort((a, b) =>
       a.name.localeCompare(b.name),
@@ -393,7 +418,7 @@ const ResultsView = () => {
   };
   // --- End CSV Export Functions ---
 
-  // Empty State
+  // Empty State (Unchanged)
   if (!teams || teams.length === 0) {
     return (
       <>
@@ -416,6 +441,8 @@ const ResultsView = () => {
     );
   }
 
+  // --- JSX Return (Unchanged) ---
+  // The UI table display is not modified, only the export function.
   return (
     <div className="space-y-6">
       <MotionCard className="z-20">
@@ -488,7 +515,6 @@ const ResultsView = () => {
       </MotionCard>
 
       {/* Conditional View */}
-      {/* Wrap the view content in MotionCard for consistent styling */}
       {viewMode === "leaderboard" ? (
         <>
           <div className="overflow-x-auto rounded-lg border border-zinc-800">
@@ -509,6 +535,13 @@ const ResultsView = () => {
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-semibold tracking-wider text-zinc-400 uppercase">
                     Reviews
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold tracking-wider text-zinc-400 uppercase">
+                    Comments
+                  </th>
+                  {/* This column still just shows names in the UI */}
+                  <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-zinc-400 uppercase">
+                    Judges w/ Comments
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-semibold tracking-wider text-zinc-400 uppercase">
                     High
@@ -532,6 +565,15 @@ const ResultsView = () => {
                   const scores = team.reviewedBy?.map((r) => r.score) || [];
                   const high = scores.length ? Math.max(...scores) : 0;
                   const low = scores.length ? Math.min(...scores) : Infinity;
+                  const commentCount = (team.reviewedBy || []).filter(
+                    (r) => r.comments && r.comments.trim() !== "",
+                  ).length;
+
+                  // This logic for the UI remains unchanged
+                  const judgesWithComments = (team.reviewedBy || [])
+                    .filter((r) => r.comments && r.comments.trim() !== "")
+                    .map((r) => judgeMap.get(r.judgeId)?.name || "Unknown")
+                    .join(", ");
 
                   return (
                     <motion.tr
@@ -558,6 +600,22 @@ const ResultsView = () => {
                       <td className="px-4 py-3 text-center text-sm text-zinc-300">
                         {team.reviewedBy?.length ?? 0}
                       </td>
+                      <td className="px-4 py-3 text-center text-sm text-zinc-300">
+                        {commentCount > 0 ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-200">
+                            <MessageSquare className="size-3" />
+                            {commentCount}
+                          </span>
+                        ) : (
+                          "0"
+                        )}
+                      </td>
+                      {/* This UI cell still just shows the names */}
+                      <td className="px-4 py-3 text-left text-sm text-zinc-400">
+                        {judgesWithComments || (
+                          <span className="text-zinc-600">N/A</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-center text-sm font-medium text-blue-400">
                         {high.toFixed(2)}
                       </td>
@@ -576,7 +634,6 @@ const ResultsView = () => {
           {filteredAndSortedTeams.length === 0 && (
             <Card className="mt-4">
               {" "}
-              {/* Add margin if table is empty */}
               <p className="text-center text-zinc-400">
                 No teams match the current filters.
               </p>
@@ -584,7 +641,6 @@ const ResultsView = () => {
           )}
         </>
       ) : (
-        // Pass data to ReviewMatrix
         <ReviewMatrix teams={teams} judges={judges} assignments={assignments} />
       )}
 

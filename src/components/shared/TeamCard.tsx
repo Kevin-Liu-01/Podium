@@ -1,5 +1,6 @@
+// shared/TeamCard.tsx
 import React, { useMemo } from "react";
-import { Star, MessageSquare, Users } from "lucide-react";
+import { Star, MessageSquare, Users, Pause, Play } from "lucide-react"; // [FEATURE 2] Add Pause/Play
 import type { Team, Judge } from "../../lib/types";
 import { useAppContext } from "../../context/AppContext";
 import MotionCard from "../ui/MotionCard";
@@ -10,9 +11,15 @@ interface TeamCardProps {
   team: Team;
   onClick: () => void;
   assignedJudgeIds: string[];
+  onTogglePause: (teamId: string) => void; // [FEATURE 2] Add handler prop
 }
 
-const TeamCard = ({ team, onClick, assignedJudgeIds }: TeamCardProps) => {
+const TeamCard = ({
+  team,
+  onClick,
+  assignedJudgeIds,
+  onTogglePause, // [FEATURE 2] Get handler
+}: TeamCardProps) => {
   const { judges } = useAppContext();
 
   const TARGET_REVIEWS = 5;
@@ -37,11 +44,40 @@ const TeamCard = ({ team, onClick, assignedJudgeIds }: TeamCardProps) => {
       ? `Assigned to: ${assignedJudges.map((j) => j.name).join(", ")}`
       : "";
 
+  // [FEATURE 2] Handle pause button click
+  const handlePauseClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card's onClick from firing
+    onTogglePause(team.id);
+  };
+
   return (
     <MotionCard
       onClick={onClick}
-      className="group/card relative flex h-full cursor-pointer flex-col justify-between gap-4 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-orange-500/50 hover:shadow-2xl hover:shadow-orange-500/10"
+      className={`group/card relative flex h-full cursor-pointer flex-col justify-between gap-4 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-orange-500/50 hover:shadow-2xl hover:shadow-orange-500/10 ${
+        team.isPaused ? "opacity-40 grayscale" : "" // [FEATURE 2] Style if paused
+      }`}
     >
+      {/* [FEATURE 2] Pause/Play Button */}
+      <div className="absolute right-3 bottom-3 z-10">
+        <Tooltip content={team.isPaused ? "Resume Team" : "Pause Team"}>
+          <button
+            onClick={handlePauseClick}
+            className={`flex size-7 items-center justify-center rounded-full border-2 border-zinc-900 transition-colors ${
+              team.isPaused
+                ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                : "bg-zinc-600 text-zinc-300 hover:bg-zinc-500"
+            }`}
+          >
+            {team.isPaused ? (
+              <Play className="size-4 fill-white" />
+            ) : (
+              <Pause className="size-4" />
+            )}
+          </button>
+        </Tooltip>
+      </div>
+      {/* --- */}
+
       {/* Assigned indicator now uses the Tooltip component */}
       {assignedJudges.length > 0 && (
         <div className="absolute top-3 right-3 z-10">

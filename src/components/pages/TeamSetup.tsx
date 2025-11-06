@@ -1,3 +1,4 @@
+// pages/TeamSetup.tsx
 "use client";
 import React, { useState, useMemo, useEffect } from "react";
 import {
@@ -22,7 +23,9 @@ import {
   Upload,
   List,
   Hash,
-} from "lucide-react"; // Added new icons
+  Pause, // [FEATURE 1] Added Icon
+  Play, // [FEATURE 1] Added Icon
+} from "lucide-react";
 import { db } from "../../firebase/config";
 import { useAppContext } from "../../context/AppContext";
 import type { Team } from "../../lib/types"; // Ensure path is correct
@@ -34,6 +37,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Card } from "../ui/Card"; // Ensure path is correct
 import { Label } from "../ui/Label"; // Ensure path is correct
 import ConfirmationDialog from "../ui/ConfirmationDialog"; // Ensure path is correct
+import Tooltip from "../ui/Tooltip"; // [FEATURE 1] Import Tooltip
 
 // Type for the team to be imported
 type ParsedTeam = {
@@ -45,10 +49,10 @@ type ParsedTeam = {
 const TeamSetup = () => {
   // Get 'user' from context
   const { teams, floors, currentEvent, showToast, user } = useAppContext();
+
   const [mode, setMode] = useState<"bulkImport" | "manual" | "bulkGenerate">(
     "bulkImport",
   );
-
   // State for Bulk Generation
   const [totalTeams, setTotalTeams] = useState("");
   const [teamPrefix, setTeamPrefix] = useState("Team");
@@ -74,6 +78,7 @@ const TeamSetup = () => {
   >(null);
   const [confirmContent, setConfirmContent] = useState<React.ReactNode>(null);
   const [confirmTitle, setConfirmTitle] = useState("");
+  const [isPausing, setIsPausing] = useState<string | null>(null); // [FEATURE 1] State for pausing
 
   // Effect to set default total teams based on floor ranges
   useEffect(() => {
@@ -99,11 +104,41 @@ const TeamSetup = () => {
     };
   }, [totalTeams, teamPrefix, startNumber]);
 
+  // --- [FEATURE 1] Handler for Pausing Teams ---
+  const handleTogglePause = async (teamId: string) => {
+    if (!currentEvent || !user) {
+      showToast("Cannot update team: missing data.", "error");
+      return;
+    }
+    const team = teams.find((t) => t.id === teamId);
+    if (!team) {
+      showToast("Team not found.", "error");
+      return;
+    }
+
+    setIsPausing(teamId); // Start loading
+    const teamRef = doc(
+      db,
+      `users/${user.uid}/events/${currentEvent.id}/teams`,
+      teamId,
+    );
+    try {
+      await updateDoc(teamRef, { isPaused: !team.isPaused });
+      showToast(
+        `${team.name} ${!team.isPaused ? "paused" : "resumed"}.`,
+        "success",
+      );
+    } catch (error) {
+      showToast("Failed to update team status.", "error");
+    } finally {
+      setIsPausing(null); // Stop loading
+    }
+  };
+
   // --- Bulk Generation ---
   const handleGenerateTeamsClick = () => {
     const total = parseInt(totalTeams);
     const startNum = parseInt(startNumber);
-
     if (isNaN(total) || total <= 0)
       return showToast("Please enter a valid total number of teams.", "error");
     if (isNaN(startNum) || startNum <= 0)
@@ -183,6 +218,7 @@ const TeamSetup = () => {
             reviewedBy: [],
             totalScore: 0,
             averageScore: 0,
+            isPaused: false, // [FEATURE 2] Add pause field
           });
         }
       }
@@ -200,7 +236,6 @@ const TeamSetup = () => {
   const handleImportTeamsClick = () => {
     if (floors.length === 0)
       return showToast("Please create floors with team ranges first.", "error");
-
     setIsImporting(true); // Indicate processing starts
     const lines = bulkImportData.trim().split("\n");
     const parsedTeams: ParsedTeam[] = [];
@@ -230,7 +265,6 @@ const TeamSetup = () => {
         const parts = line.split(/[\t,:-]/, 2);
         const numberStr = parts[0]?.trim();
         name = parts[1]?.trim();
-
         if (!numberStr || !name) {
           showToast(
             `Error on line ${lineNum}: Invalid format. Use "Number[Separator]Name".`,
@@ -255,6 +289,7 @@ const TeamSetup = () => {
         );
         return false;
       }
+
       if (teams.length > 0 && existingNumbers.has(number)) {
         showToast(
           `Error on line ${lineNum}: Team number ${number} already exists. Clear teams first or use manual add.`,
@@ -305,7 +340,6 @@ const TeamSetup = () => {
     }
 
     setIsImporting(false); // Processing finished (error or not)
-
     if (hasError) return; // Stop if errors were found
 
     if (parsedTeams.length === 0) {
@@ -313,9 +347,7 @@ const TeamSetup = () => {
       return;
     }
 
-    setTeamsToImport(parsedTeams);
-
-    // Set confirmation details
+    setTeamsToImport(parsedTeams); // Set confirmation details
     setConfirmTitle("Confirm Team Import");
     setConfirmContent(
       <>
@@ -330,10 +362,8 @@ const TeamSetup = () => {
           </p>
         )}
         <p className="mt-3 text-sm text-zinc-400">
-          First team: "{parsedTeams[0].name}" (#
-          {parsedTeams[0].number})
-          <br />
-          Last team: "{parsedTeams[parsedTeams.length - 1].name}" (#
+          First team: "{parsedTeams[0].name}" (# {parsedTeams[0].number}) <br />
+          Last team: "{parsedTeams[parsedTeams.length - 1].name}" (#{" "}
           {parsedTeams[parsedTeams.length - 1].number})
         </p>
       </>,
@@ -368,10 +398,10 @@ const TeamSetup = () => {
           reviewedBy: [],
           totalScore: 0,
           averageScore: 0,
+          isPaused: false, // [FEATURE 2] Add pause field
         });
       }
       await addBatch.commit();
-
       showToast(
         `${teamsToImport.length} teams imported successfully!`,
         "success",
@@ -402,7 +432,6 @@ const TeamSetup = () => {
       let targetFloor = floors.find(
         (f) => number >= f.teamNumberStart && number <= f.teamNumberEnd,
       );
-
       const basePath = `users/${user.uid}/events/${currentEvent.id}`;
 
       // Auto-extend logic
@@ -439,6 +468,7 @@ const TeamSetup = () => {
         reviewedBy: [],
         totalScore: 0,
         averageScore: 0,
+        isPaused: false, // [FEATURE 2] Add pause field
       });
       showToast(`Team "${name}" (#${number}) added successfully!`, "success");
       setNewTeamNumber("");
@@ -484,21 +514,29 @@ const TeamSetup = () => {
             <div className="mb-4 flex rounded-lg border border-zinc-800 bg-zinc-950/50 p-1">
               <Button
                 onClick={() => setMode("bulkGenerate")}
-                className={`w-1/3 ${mode === "bulkGenerate" ? "bg-orange-600" : "bg-transparent"}`}
+                className={`w-1/3 ${
+                  mode === "bulkGenerate" ? "bg-orange-600" : "bg-transparent"
+                }`}
                 size="sm"
               >
-                <Server className="mr-1 size-4" /> {/* Added margin */} Generate
+                <Server className="mr-1 size-4" /> {/* Added margin */}
+                Generate
               </Button>
               <Button
                 onClick={() => setMode("bulkImport")}
-                className={`w-1/3 ${mode === "bulkImport" ? "bg-orange-600" : "bg-transparent"}`}
+                className={`w-1/3 ${
+                  mode === "bulkImport" ? "bg-orange-600" : "bg-transparent"
+                }`}
                 size="sm"
               >
-                <Upload className="mr-1 size-4" /> {/* Added margin */} Import
+                <Upload className="mr-1 size-4" /> {/* Added margin */}
+                Import
               </Button>
               <Button
                 onClick={() => setMode("manual")}
-                className={`w-1/3 ${mode === "manual" ? "bg-orange-600" : "bg-transparent"}`}
+                className={`w-1/3 ${
+                  mode === "manual" ? "bg-orange-600" : "bg-transparent"
+                }`}
                 size="sm"
               >
                 <PlusCircle className="mr-1 size-4" /> {/* Added margin */}{" "}
@@ -604,7 +642,9 @@ const TeamSetup = () => {
                         )}
                         {isGenerating
                           ? "Generating..."
-                          : `Generate & ${teams.length > 0 ? "Replace All" : "Create Teams"}`}
+                          : `Generate & ${
+                              teams.length > 0 ? "Replace All" : "Create Teams"
+                            }`}
                       </Button>
                     </div>
                   </div>
@@ -622,14 +662,22 @@ const TeamSetup = () => {
                         <div className="flex rounded-lg border border-zinc-700 bg-zinc-950/50 p-1">
                           <Button
                             onClick={() => setImportMode("manual")}
-                            className={`flex-1 ${importMode === "manual" ? "bg-zinc-700" : "bg-transparent text-zinc-400"}`}
+                            className={`flex-1 ${
+                              importMode === "manual"
+                                ? "bg-zinc-700"
+                                : "bg-transparent text-zinc-400"
+                            }`}
                             size="sm"
                           >
                             <Hash className="mr-1 size-4" /> Number & Name
                           </Button>
                           <Button
                             onClick={() => setImportMode("auto")}
-                            className={`flex-1 ${importMode === "auto" ? "bg-zinc-700" : "bg-transparent text-zinc-400"}`}
+                            className={`flex-1 ${
+                              importMode === "auto"
+                                ? "bg-zinc-700"
+                                : "bg-transparent text-zinc-400"
+                            }`}
                             size="sm"
                           >
                             <List className="mr-1 size-4" /> Names Only
@@ -654,8 +702,7 @@ const TeamSetup = () => {
                                 Format: <code>Number[ , : - Tab ]Name</code>
                               </Label>
                               <p className="mt-1 text-xs text-zinc-400">
-                                Paste teams one per line.
-                                <br />
+                                Paste teams one per line. <br />
                                 e.g., <code>101,Team Rocket</code> or{" "}
                                 <code>102:Team Aqua</code>
                               </p>
@@ -726,7 +773,9 @@ const TeamSetup = () => {
                         )}
                         {isImporting
                           ? "Validating..." // Change text
-                          : `Validate & ${teams.length > 0 ? "Replace All" : "Import Teams"}`}
+                          : `Validate & ${
+                              teams.length > 0 ? "Replace All" : "Import Teams"
+                            }`}
                       </Button>
                     </div>
                   </div>
@@ -791,10 +840,13 @@ const TeamSetup = () => {
 
         {/* --- RIGHT COLUMN: TEAMS DISPLAY --- */}
         <div className="h-full lg:col-span-2">
+          {" "}
           {/* Adjusted height calculation */}
           <Card className="h-[calc(100vh-8rem)] overflow-y-auto">
+            {" "}
             {/* Adjusted height */}
             <div className="sticky top-[-1rem] z-10 mt-[-1rem] mb-2 py-3">
+              {" "}
               {/* Sticky header */}
               <h2 className="pt-2 text-xl font-bold text-zinc-100">
                 Current Teams ({teams.length})
@@ -813,7 +865,7 @@ const TeamSetup = () => {
               </Card>
             )}
             {floors.length > 0 && teams.length === 0 && (
-              <Card className="flex h-[calc(100%-4rem)] flex-col items-center justify-center gap-4 text-center">
+              <Card className="flex h-[calc(1s00%-4rem)] flex-col items-center justify-center gap-4 text-center">
                 <Users2 className="size-16 text-zinc-700" />
                 <p className="font-semibold text-zinc-400">No Teams Added</p>
                 <p className="text-zinc-500 italic">
@@ -830,7 +882,6 @@ const TeamSetup = () => {
                   const teamsOnFloor = teams
                     .filter((t) => t.floorId === floor.id)
                     .sort((a, b) => a.number - b.number);
-
                   // Don't render floor section if no teams are on it
                   // if (teamsOnFloor.length === 0) return null;
 
@@ -846,10 +897,43 @@ const TeamSetup = () => {
                             <MotionCard
                               key={team.id}
                               onClick={() => handleSelectTeam(team)} // Use helper
-                              className="transform-gpu cursor-pointer rounded-lg bg-zinc-800/70 p-3 text-left shadow-md transition-all hover:-translate-y-1 hover:bg-zinc-700/90 hover:shadow-xl hover:shadow-orange-500/10"
+                              className={`relative transform-gpu cursor-pointer rounded-lg bg-zinc-800/70 p-3 text-left shadow-md transition-all hover:-translate-y-1 hover:bg-zinc-700/90 hover:shadow-xl hover:shadow-orange-500/10 ${
+                                team.isPaused ? "opacity-40 grayscale" : "" // [FEATURE 2] Style paused
+                              }`}
                             >
+                              {/* [FEATURE 1] Pause/Play Button */}
+                              <div className="absolute top-2 right-2 z-10">
+                                <Tooltip
+                                  content={
+                                    team.isPaused ? "Resume Team" : "Pause Team"
+                                  }
+                                >
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleTogglePause(team.id);
+                                    }}
+                                    disabled={isPausing === team.id}
+                                    className={`flex size-6 items-center justify-center rounded-full border border-zinc-900 transition-colors ${
+                                      team.isPaused
+                                        ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                                        : "bg-zinc-600 text-zinc-300 hover:bg-zinc-500"
+                                    }`}
+                                  >
+                                    {isPausing === team.id ? (
+                                      <Loader className="size-3 animate-spin" />
+                                    ) : team.isPaused ? (
+                                      <Play className="size-3 fill-white" />
+                                    ) : (
+                                      <Pause className="size-3" />
+                                    )}
+                                  </button>
+                                </Tooltip>
+                              </div>
+                              {/* --- End Feature 1 --- */}
+
                               <p
-                                className="truncate font-bold text-white"
+                                className="truncate pr-6 font-bold text-white" // Added pr-6
                                 title={team.name}
                               >
                                 {team.name}
@@ -888,6 +972,7 @@ const TeamSetup = () => {
           </Card>
         </div>
       </div>
+
       {selectedTeam && (
         <ScoreDetailModal
           team={selectedTeam}

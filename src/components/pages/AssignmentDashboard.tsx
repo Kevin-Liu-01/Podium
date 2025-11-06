@@ -8,6 +8,7 @@ import {
   collection,
   Timestamp,
   updateDoc,
+  deleteDoc, // Import deleteDoc
 } from "firebase/firestore";
 import {
   SlidersHorizontal,
@@ -147,8 +148,9 @@ const AssignmentDashboard = () => {
 
     const allSubmitted = assignments.filter((a) => a.submitted);
     const allCurrent = assignments.filter((a) => !a.submitted);
+    // [FEATURE 2] Filter out paused teams
     const teamsOnFloor = teams
-      .filter((t) => t.floorId === selectedFloorId)
+      .filter((t) => t.floorId === selectedFloorId && !t.isPaused)
       .sort((a, b) => a.number - b.number);
 
     for (const judge of judges) {
@@ -162,6 +164,7 @@ const AssignmentDashboard = () => {
       const currentAssignment = allCurrent.find((a) => a.judgeId === judge.id);
       const currentIds = currentAssignment ? currentAssignment.teamIds : [];
 
+      // [FEATURE 2] Candidate teams also filters paused
       const candidateTeams = teamsOnFloor.filter(
         (t) => !completedIds.has(t.id),
       );
@@ -225,7 +228,9 @@ const AssignmentDashboard = () => {
     return teams
       .filter(
         (t) =>
+          // [FEATURE 2] Filter out paused teams
           t.floorId === selectedFloorId &&
+          !t.isPaused &&
           t.name.toLowerCase().includes(teamSearch.toLowerCase()),
       )
       .sort((a, b) => a.number - b.number);
@@ -351,6 +356,46 @@ const AssignmentDashboard = () => {
     }
   };
 
+  // [FEATURE 3] Handler to remove a single team from an assignment
+  const handleRemoveTeamFromAssignment = async (
+    assignmentId: string,
+    teamId: string,
+  ) => {
+    if (!currentEvent || !user) {
+      showToast("Cannot edit assignment: missing data.", "error");
+      throw new Error("Missing data");
+    }
+
+    const assignment = assignments.find((a) => a.id === assignmentId);
+    if (!assignment) {
+      showToast("Assignment not found.", "error");
+      throw new Error("Assignment not found");
+    }
+
+    const newTeamIds = assignment.teamIds.filter((id) => id !== teamId);
+    const assignmentRef = doc(
+      db,
+      `users/${user.uid}/events/${currentEvent.id}/assignments`,
+      assignmentId,
+    );
+
+    try {
+      if (newTeamIds.length === 0) {
+        // If last team is removed, delete the whole assignment
+        await handleRemoveAssignment(assignmentId, assignment.judgeId);
+        showToast("Last team removed. Assignment deleted.", "success");
+      } else {
+        // Otherwise, just update the teamIds array
+        await updateDoc(assignmentRef, { teamIds: newTeamIds });
+        showToast("Team removed from assignment.", "success");
+      }
+    } catch (error) {
+      console.error("Error removing team from assignment:", error);
+      showToast("Failed to remove team.", "error");
+      throw error; // Re-throw
+    }
+  };
+
   const generateAssignments = async () => {
     if (!currentEvent || !user) return;
     if (autoSelectedJudgeIds.length === 0)
@@ -358,8 +403,9 @@ const AssignmentDashboard = () => {
     if (!selectedFloorId) return showToast("Please select a floor.", "error");
     setIsAssigning(true);
     try {
+      // [FEATURE 2] Filter out paused teams
       const allTeamsOnFloor = teams
-        .filter((t) => t.floorId === selectedFloorId)
+        .filter((t) => t.floorId === selectedFloorId && !t.isPaused)
         .sort((a, b) => a.number - b.number);
       const allSubmittedAssignments = assignments.filter((a) => a.submitted);
       const activeAssignments = assignments.filter((a) => !a.submitted);
@@ -367,18 +413,11 @@ const AssignmentDashboard = () => {
       const globallyLockedTeamIds = new Set(
         activeAssignments.flatMap((a) => a.teamIds),
       );
-
       const selectedJudgesList = autoSelectedJudgeIds
         .map((id) => judges.find((j) => j.id === id))
         .filter((j): j is Judge => !!j);
 
-      // --- [MODIFIED] ---
-      // We still use pressure maps to FIND the best block
-      const ephemeralPressureMap = new Map<string, number>(
-        allTeamsOnFloor.map((t) => [t.id, t.reviewedBy.length]),
-      );
-
-      // Check for overlap mode
+      // --- [FEATURE 1] Overlap Logic ---
       const availablePool = allTeamsOnFloor.filter(
         (team) => !globallyLockedTeamIds.has(team.id),
       );
@@ -386,9 +425,13 @@ const AssignmentDashboard = () => {
       const maxExclusiveBlocks = Math.floor(availablePool.length / 5);
       const isOverlapMode = numJudgesToAssign > maxExclusiveBlocks;
 
-      // [NEW] This Set tracks overlaps *within this batch* to trigger reversal
+      // This map tracks pressure *within this batch*
+      const ephemeralPressureMap = new Map<string, number>(
+        allTeamsOnFloor.map((t) => [t.id, t.reviewedBy.length]),
+      );
+      // This Set tracks which blocks are assigned *in this batch* for reversal
       const assignedBlockSignatures = new Set<string>();
-      // --- [END MODIFIED] ---
+      // --- End Feature 1 Logic ---
 
       const newAssignmentsToCreate: { judge: Judge; teams: Team[] }[] = [];
       const failedAssignments: { judgeName: string; reason: string }[] = [];
@@ -400,6 +443,7 @@ const AssignmentDashboard = () => {
             .flatMap((a) => a.teamIds),
         );
 
+        // [FEATURE 2] Filter out paused teams
         const candidateTeams = allTeamsOnFloor.filter(
           (team) =>
             !alreadyJudgedIds.has(team.id) &&
@@ -423,54 +467,50 @@ const AssignmentDashboard = () => {
           const window = candidateTeams.slice(i, i + 5);
           if (window[4].number - window[0].number > 15) continue;
 
-          // Check pressure from the ephemeral map
-          const windowEphemeralPressure = window.reduce(
+          // [FEATURE 1] Read from ephemeral pressure map
+          const pressureScore = window.reduce(
             (sum, team) => sum + (ephemeralPressureMap.get(team.id) || 0),
             0,
           );
-
-          if (windowEphemeralPressure < lowestPressureScore) {
-            lowestPressureScore = windowEphemeralPressure;
+          if (pressureScore < lowestPressureScore) {
+            lowestPressureScore = pressureScore;
             bestAssignment = window;
           }
         }
-
         // Pass 2: Relaxed search (if needed)
         if (bestAssignment === null) {
           lowestPressureScore = Infinity;
           for (let i = 0; i <= candidateTeams.length - 5; i++) {
             const window = candidateTeams.slice(i, i + 5);
-            const windowEphemeralPressure = window.reduce(
+            // [FEATURE 1] Read from ephemeral pressure map
+            const pressureScore = window.reduce(
               (sum, team) => sum + (ephemeralPressureMap.get(team.id) || 0),
               0,
             );
-
-            if (windowEphemeralPressure < lowestPressureScore) {
-              lowestPressureScore = windowEphemeralPressure;
+            if (pressureScore < lowestPressureScore) {
+              lowestPressureScore = pressureScore;
               bestAssignment = window;
             }
           }
         }
 
         if (bestAssignment) {
-          // --- [NEW LOGIC] ---
-          // Create a unique ID for this block of teams
+          // --- [FEATURE 1] Reversal Logic ---
           const blockSignature = bestAssignment.map((t) => t.id).join("_");
-          let finalTeams = bestAssignment; // Default to forward order
+          let finalTeams = bestAssignment; // Default: 16, 17, 18, 19, 20
 
-          // Check if this block is already in our Set
           if (assignedBlockSignatures.has(blockSignature)) {
-            // This is an overlap! Reverse the array for this judge.
-            finalTeams = [...bestAssignment].reverse();
+            // This is an overlap! Reverse the array.
+            finalTeams = [...bestAssignment].reverse(); // Becomes: 20, 19, 18, 17, 16
           } else {
-            // This is the first time. Add it to the set for next time.
+            // First time this block is assigned in this batch.
             assignedBlockSignatures.add(blockSignature);
           }
-          // --- [END NEW LOGIC] ---
+          // --- End Feature 1 Reversal ---
 
           newAssignmentsToCreate.push({ judge, teams: finalTeams });
 
-          // (Logic from previous step remains)
+          // --- [FEATURE 1] Update Pressure/Locks ---
           if (isOverlapMode) {
             // In overlap mode, just update pressure for the next judge
             for (const team of bestAssignment) {
@@ -483,6 +523,7 @@ const AssignmentDashboard = () => {
               globallyLockedTeamIds.add(team.id),
             );
           }
+          // --- End Feature 1 Pressure Update ---
         } else {
           failedAssignments.push({
             judgeName: judge.name,
@@ -620,7 +661,7 @@ const AssignmentDashboard = () => {
 
   return (
     <>
-      {/* Updated Modal Call */}
+      {/* [FEATURE 3] Pass new prop to modal */}
       <JudgeDetailsModal
         isOpen={!!viewingJudge}
         judge={viewingJudge}
@@ -630,7 +671,7 @@ const AssignmentDashboard = () => {
         onClose={() => setViewingJudge(null)}
         onSwitchFloor={handleSwitchFloor}
         onRemoveAssignment={handleRemoveAssignment}
-        // currentFloorId={selectedFloorId} // Prop removed/optional
+        onRemoveTeamFromAssignment={handleRemoveTeamFromAssignment} // Pass new handler
       />
 
       <div className="grid h-full grid-cols-1 gap-4 lg:grid-cols-2">
@@ -866,7 +907,7 @@ const AssignmentDashboard = () => {
                   type="text"
                   placeholder="Search by judge name..."
                   value={judgeSearch}
-                  onChange={(e) => setJudgeSearch(e.g.target.value)}
+                  onChange={(e) => setJudgeSearch(e.target.value)}
                   className="pl-10"
                 />
               </div>

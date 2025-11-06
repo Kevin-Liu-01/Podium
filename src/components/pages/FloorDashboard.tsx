@@ -1,44 +1,186 @@
-// pages/FloorDashboard.tsx
 "use client";
 import React, { useState, useMemo } from "react";
-import { motion } from "framer-motion"; // Added AnimatePresence
-import { doc, updateDoc, writeBatch } from "firebase/firestore"; // Added Firestore imports
-import { useAppContext } from "../../context/AppContext"; // Ensure path is correct
-import type { Floor, Judge, Team, Assignment } from "../../lib/types"; // Ensure path is correct
-import { getColorForJudge } from "../../lib/utils"; // Ensure path is correct
-import { staggerContainer, fadeInUp } from "../../lib/animations"; // Ensure path is correct
-import MotionCard from "../ui/MotionCard"; // Ensure paths are correct
-import TeamCard from "../shared/TeamCard"; // Ensure path is correct
-import ScoreDetailModal from "../shared/ScoreDetailModal"; // Ensure path is correct
-import ScoreEntryForm from "../shared/ScoreEntryForm"; // Ensure path is correct
-import { Button } from "../ui/Button"; // Ensure path is correct
-import { PlusIcon, SlidersHorizontal, User, Users } from "lucide-react"; // Added icons
-import { db } from "../../firebase/config"; // Added db
-import Tooltip from "../ui/Tooltip"; // Added Tooltip
-import JudgeDetailsModal from "../shared/JudgeDetailsModal"; // <--- Import shared modal
-import { Card } from "../ui/Card";
+import { motion, AnimatePresence } from "framer-motion";
+import { doc, updateDoc, writeBatch } from "firebase/firestore";
+import { useAppContext } from "../../context/AppContext";
+import type { Floor, Judge, Team, Assignment, Review } from "../../lib/types";
+import { getColorForJudge } from "../../lib/utils";
+import { staggerContainer, fadeInUp } from "../../lib/animations";
+import MotionCard from "../ui/MotionCard";
+import TeamCard from "../shared/TeamCard";
+import ScoreDetailModal from "../shared/ScoreDetailModal";
+import ScoreEntryForm from "../shared/ScoreEntryForm";
+import { Button } from "../ui/Button";
+import {
+  PlusIcon,
+  SlidersHorizontal,
+  User,
+  Users,
+  Play,
+  Pause,
+  Search, // [NEW] Import
+  Clock, // [NEW] Import
+  CheckCircle2, // [NEW] Import
+  XCircle, // [NEW] Import
+} from "lucide-react";
+import { db } from "../../firebase/config";
+import Tooltip from "../ui/Tooltip";
+import JudgeDetailsModal from "../shared/JudgeDetailsModal";
+import { CustomDropdown } from "../ui/CustomDropdown";
+import { Input } from "../ui/Input"; // [NEW] Import
+
+const TEAM_SORT_OPTIONS = [
+  { value: "number", label: "Sort by Team #" },
+  { value: "most-seen", label: "Sort by Most Seen" },
+  { value: "least-seen", label: "Sort by Least Seen" },
+];
+
+const TEAM_FILTER_OPTIONS = [
+  { value: "all", label: "Filter: All" },
+  { value: "assigned", label: "Filter: Assigned" },
+  { value: "unassigned", label: "Filter: Unassigned" },
+];
+
+// --- [NEW] Sort options for Judges ---
+const JUDGE_SORT_OPTIONS = [
+  { value: "name", label: "Sort by Name (A-Z)" },
+  { value: "most-completed", label: "Sort by Most Completed" },
+  { value: "least-completed", label: "Sort by Fewest Completed" },
+];
+// ---
+
+// --- [UPDATED] Judge List Item Component ---
+const JudgeListItem = ({
+  judge,
+  status,
+  currentTeams, // <-- [NEW] Added prop
+  onViewDetails,
+  onEnterScores,
+}: {
+  judge: Judge;
+  status: "busy" | "assignable" | "finished";
+  currentTeams: Team[]; // <-- [NEW] Added prop
+  onViewDetails: () => void;
+  onEnterScores: () => void;
+}) => {
+  const statusConfig = {
+    busy: {
+      Icon: Clock,
+      label: "Busy",
+      className: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    },
+    assignable: {
+      Icon: CheckCircle2,
+      label: "Assignable",
+      className: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    },
+    finished: {
+      Icon: User,
+      label: "Finished",
+      className: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+    },
+  };
+  const { Icon, label, className } = statusConfig[status];
+
+  return (
+    <motion.div
+      layout
+      variants={fadeInUp}
+      className="flex flex-col gap-3 rounded-lg border border-zinc-700/50 bg-zinc-800/80 p-3"
+    >
+      {/* Top section: Judge Info */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1">
+          <p className="font-bold">{judge.name}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <div
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${className}`}
+            >
+              <Icon className="size-3" /> {label}
+            </div>
+            <span className="rounded-full bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-300">
+              Completed: {judge.completedAssignments ?? 0}
+            </span>
+          </div>
+        </div>
+        <Tooltip content="View Judge Details / Move" position="left">
+          <Button onClick={onViewDetails} variant="secondary" size="icon-sm">
+            <SlidersHorizontal className="size-4" />
+          </Button>
+        </Tooltip>
+      </div>
+
+      {/* [NEW] Middle section: Active Teams (if busy) */}
+      {status === "busy" && currentTeams.length > 0 && (
+        <div className="border-t border-zinc-700/50 pt-3">
+          <p className="mb-1.5 text-xs font-semibold text-zinc-400">
+            Actively Assigned:
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {currentTeams.map((team) => (
+              <span
+                key={team.id}
+                className="max-w-[200px] truncate rounded-full bg-zinc-600 px-2 py-0.5 text-xs text-white"
+                title={team.name}
+              >
+                #{team.number} {team.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Bottom section: Enter Scores Button (if busy) */}
+      {status === "busy" && (
+        <Tooltip content="Enter scores for this assignment" position="bottom">
+          <Button
+            onClick={onEnterScores}
+            size="sm"
+            className="w-full bg-orange-600 hover:bg-orange-500"
+          >
+            <PlusIcon className="mr-1 size-4" /> Enter Scores
+          </Button>
+        </Tooltip>
+      )}
+    </motion.div>
+  );
+};
+// ---
 
 const FloorDashboard = ({ floor }: { floor: Floor }) => {
   const { teams, judges, assignments, currentEvent, user, floors, showToast } =
-    useAppContext(); // Added user, showToast
+    useAppContext();
+
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [assignmentToScore, setAssignmentToScore] = useState<Assignment | null>(
     null,
   );
+  const [viewingJudge, setViewingJudge] = useState<Judge | null>(null); // Loading states for modal actions
 
-  // State for Modal
-  const [viewingJudge, setViewingJudge] = useState<Judge | null>(null);
-  // Separate loading states for clarity, although modal manages its own internal switching state
   const [isHandlingSwitchFloor, setIsHandlingSwitchFloor] = useState(false);
   const [isHandlingRemoveAssignment, setIsHandlingRemoveAssignment] =
-    useState(false);
+    useState(false); // State for team sorting and filtering
 
-  const floorTeams = useMemo(
-    () =>
-      teams
-        .filter((t) => t.floorId === floor.id)
-        .sort((a, b) => a.number - b.number),
-    [teams, floor.id],
+  type TeamSort = "number" | "most-seen" | "least-seen";
+  type TeamFilter = "all" | "assigned" | "unassigned";
+  const [teamSort, setTeamSort] = useState<TeamSort>("number");
+  const [teamFilter, setTeamFilter] = useState<TeamFilter>("all");
+
+  // --- [NEW] State for Judge Panel ---
+  const [judgeSearch, setJudgeSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "busy" | "assignable" | "finished"
+  >("all");
+  // --- [NEW] State for Judge Sorting ---
+  type JudgeSort = "name" | "most-completed" | "least-completed";
+  const [judgeSort, setJudgeSort] = useState<JudgeSort>("name");
+  // ---
+
+  // --- Memoized Data Maps ---
+  const teamMap = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
+  const assignmentMap = useMemo(
+    () => new Map(assignments.map((a) => [a.id, a])),
+    [assignments],
   );
 
   const assignedJudgesMap = useMemo(() => {
@@ -53,47 +195,167 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
       }
     }
     return map;
-  }, [assignments]);
+  }, [assignments]); // --- [NEW] Judge Status Logic (Adapted from AssignmentDashboard) ---
 
-  const { judgesOut, judgesAvailable, judgesFinished } = useMemo(() => {
-    if (!judges || !teams || !assignments)
-      return { judgesOut: [], judgesAvailable: [], judgesFinished: [] };
-    const floorJudges = judges.filter((j) => j.floorId === floor.id);
-    const teamsOnFloor = teams.filter((t) => t.floorId === floor.id);
-    const allSubmittedAssignments = assignments.filter((a) => a.submitted);
-    const out = floorJudges.filter((j) => j.currentAssignmentId);
-    const available = floorJudges.filter((j) => !j.currentAssignmentId);
-    const finished: Judge[] = [];
-    const stillAssignable: Judge[] = [];
-    for (const judge of available) {
-      const judgedTeamIds = new Set(
-        allSubmittedAssignments
+  const judgeDetailsMap = useMemo(() => {
+    const details = new Map<
+      string,
+      {
+        completedTeams: Team[];
+        currentTeams: Team[];
+        status: "busy" | "assignable" | "finished";
+      }
+    >();
+    if (!floor.id || !judges || !teams || !assignments) return details;
+
+    const allSubmitted = assignments.filter((a) => a.submitted);
+    const allCurrent = assignments.filter((a) => !a.submitted);
+    const teamsOnFloor = teams
+      .filter((t) => t.floorId === floor.id && !t.isPaused)
+      .sort((a, b) => a.number - b.number);
+
+    for (const judge of judges) {
+      if (judge.floorId !== floor.id) continue;
+
+      const completedIds = new Set(
+        allSubmitted
           .filter((a) => a.judgeId === judge.id)
           .flatMap((a) => a.teamIds),
       );
+      const currentAssignment = allCurrent.find((a) => a.judgeId === judge.id);
+      const currentIds = currentAssignment ? currentAssignment.teamIds : [];
+
       const candidateTeams = teamsOnFloor.filter(
-        (t) => !judgedTeamIds.has(t.id),
+        (t) => !completedIds.has(t.id),
       );
       let isPossible = false;
       if (candidateTeams.length >= 5) {
         // Simplified check, full logic in AssignmentDashboard
         isPossible = true;
       }
-      const hasJudged = judgedTeamIds.size > 0;
-      if (!isPossible && hasJudged) {
-        finished.push(judge);
-      } else {
-        stillAssignable.push(judge);
-      }
-    }
-    return {
-      judgesOut: out,
-      judgesAvailable: stillAssignable,
-      judgesFinished: finished,
-    };
-  }, [judges, teams, assignments, floor.id]);
+      const isFinished = !isPossible && completedIds.size > 0;
+      const status = judge.currentAssignmentId
+        ? "busy"
+        : isFinished
+          ? "finished"
+          : "assignable";
 
-  // --- Handlers for Modal Actions ---
+      details.set(judge.id, {
+        status,
+        completedTeams: Array.from(completedIds)
+          .map((id) => (id ? teamMap.get(id) : undefined))
+          .filter((t): t is Team => !!t),
+        currentTeams: currentIds
+          .map((id) => (id ? teamMap.get(id) : undefined))
+          .filter((t): t is Team => !!t),
+      });
+    }
+    return details;
+  }, [judges, teams, assignments, floor.id, teamMap]);
+
+  const judgesOnFloor = useMemo(
+    () => judges.filter((j) => j.floorId === floor.id),
+    [judges, floor.id],
+  );
+
+  // --- [UPDATED] filteredJudges memo to include sorting ---
+  const filteredJudges = useMemo(() => {
+    return judgesOnFloor
+      .filter((judge) => {
+        const nameMatch = judge.name
+          .toLowerCase()
+          .includes(judgeSearch.toLowerCase());
+        const details = judgeDetailsMap.get(judge.id);
+        const statusMatch =
+          statusFilter === "all" ||
+          (details && details.status === statusFilter);
+        return nameMatch && statusMatch;
+      })
+      .sort((a, b) => {
+        switch (judgeSort) {
+          case "most-completed":
+            return (
+              (b.completedAssignments ?? 0) - (a.completedAssignments ?? 0)
+            );
+          case "least-completed":
+            return (
+              (a.completedAssignments ?? 0) - (b.completedAssignments ?? 0)
+            );
+          case "name":
+          default:
+            return a.name.localeCompare(b.name);
+        }
+      });
+  }, [
+    judgesOnFloor,
+    judgeSearch,
+    statusFilter,
+    judgeDetailsMap,
+    judgeSort, // Added dependency
+  ]); // --- End New Judge Logic ---
+
+  // --- Team Lists (Unchanged) ---
+  const visibleFloorTeams = useMemo(() => {
+    return teams
+      .filter((t) => {
+        if (t.floorId !== floor.id || t.isPaused) return false;
+        if (teamFilter === "assigned") {
+          const assigned = assignedJudgesMap.get(t.id);
+          return assigned && assigned.length > 0;
+        }
+        if (teamFilter === "unassigned") {
+          const assigned = assignedJudgesMap.get(t.id);
+          return !assigned || assigned.length === 0;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        switch (teamSort) {
+          case "most-seen":
+            return (b.reviewedBy?.length ?? 0) - (a.reviewedBy?.length ?? 0);
+          case "least-seen":
+            return (a.reviewedBy?.length ?? 0) - (b.reviewedBy?.length ?? 0);
+          case "number":
+          default:
+            return a.number - b.number;
+        }
+      });
+  }, [teams, floor.id, teamFilter, teamSort, assignedJudgesMap]);
+
+  const pausedFloorTeams = useMemo(
+    () =>
+      teams
+        .filter((t) => t.floorId === floor.id && t.isPaused)
+        .sort((a, b) => a.number - b.number),
+    [teams, floor.id],
+  ); // ---
+  // --- Handlers (Unchanged) ---
+  const handleTogglePause = async (teamId: string) => {
+    if (!currentEvent || !user) {
+      showToast("Cannot update team: missing data.", "error");
+      return;
+    }
+    const team = teams.find((t) => t.id === teamId);
+    if (!team) {
+      showToast("Team not found.", "error");
+      return;
+    }
+    const teamRef = doc(
+      db,
+      `users/${user.uid}/events/${currentEvent.id}/teams`,
+      teamId,
+    );
+    try {
+      await updateDoc(teamRef, { isPaused: !team.isPaused });
+      showToast(
+        `${team.name} ${!team.isPaused ? "paused" : "resumed"}.`,
+        "success",
+      );
+    } catch (error) {
+      showToast("Failed to update team status.", "error");
+    }
+  };
+
   const handleSwitchFloor = async (judgeId: string, newFloorId: string) => {
     const judge = judges.find((j) => j.id === judgeId);
     if (!currentEvent || !user || !judge) {
@@ -109,7 +371,7 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
       throw new Error("No destination selected");
     }
 
-    setIsHandlingSwitchFloor(true); // Indicate parent is processing
+    setIsHandlingSwitchFloor(true);
     const judgeRef = doc(
       db,
       `users/${user.uid}/events/${currentEvent.id}/judges`,
@@ -121,11 +383,10 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
         hasSwitchedFloors: true,
       });
       showToast(`${judge.name} moved successfully.`, "success");
-      // Modal will close itself on success
     } catch (error) {
       showToast("Failed to switch floor.", "error");
       console.error("Floor switch error:", error);
-      throw error; // Re-throw so modal knows it failed
+      throw error;
     } finally {
       setIsHandlingSwitchFloor(false);
     }
@@ -139,8 +400,7 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
       showToast("Cannot remove assignment: missing data.", "error");
       throw new Error("Missing data");
     }
-    // Confirmation handled by modal
-    setIsHandlingRemoveAssignment(true); // Indicate parent is processing
+    setIsHandlingRemoveAssignment(true);
     try {
       const batch = writeBatch(db);
       const assignmentRef = doc(
@@ -153,73 +413,78 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
         `users/${user.uid}/events/${currentEvent.id}/judges`,
         judgeId,
       );
+
       batch.delete(assignmentRef);
       batch.update(judgeRef, { currentAssignmentId: null });
       await batch.commit();
+
       showToast("Assignment successfully removed.", "success");
-      // Modal will close itself on success
     } catch (error) {
       console.error("Failed to remove assignment:", error);
       showToast("An error occurred while removing the assignment.", "error");
-      throw error; // Re-throw
+      throw error;
     } finally {
       setIsHandlingRemoveAssignment(false);
     }
   };
 
-  // --- Judge List Component ---
-  const JudgeList = ({
-    title,
-    judges: judgeList,
-    color,
-    canOpenModal = false,
-  }: {
-    title: string;
-    judges: Judge[];
-    color: string;
-    canOpenModal?: boolean;
-  }) => (
-    <Card className="h-full">
-      <h2 className={`mb-3 text-lg font-semibold ${color}`}>
-        {title} ({judgeList.length})
-      </h2>
-      <div className="custom-scrollbar grid max-h-40 grid-cols-1 gap-2 overflow-y-auto pr-2 sm:grid-cols-2">
-        {judgeList.length > 0 ? (
-          judgeList.map((judge) => (
-            <Tooltip
-              key={judge.id}
-              content="View Details / Move"
-              position="top"
-              disabled={!canOpenModal}
-            >
-              <div
-                className={`flex w-full items-center justify-between gap-3 rounded-md border border-zinc-700/50 bg-zinc-800 p-2 text-sm ${canOpenModal ? "cursor-pointer hover:bg-zinc-700" : ""}`}
-                onClick={
-                  canOpenModal ? () => setViewingJudge(judge) : undefined
-                }
-              >
-                <div className="flex items-center gap-2 overflow-hidden">
-                  <span
-                    className={`h-2 w-2 flex-shrink-0 rounded-full ${getColorForJudge(judge.id)}`}
-                  ></span>
-                  <span className="truncate font-medium" title={judge.name}>
-                    {judge.name}
-                  </span>
-                </div>
-                <SlidersHorizontal className="size-3" />
-              </div>
-            </Tooltip>
-          ))
-        ) : (
-          <div className="flex w-full flex-col items-center py-8 text-center text-sm text-zinc-500 italic sm:col-span-2">
-            <Users className="mb-2 inline-block size-6" />
-            No judges in this category.
-          </div>
-        )}
-      </div>
-    </Card>
-  );
+  const handleRemoveTeamFromAssignment = async (
+    assignmentId: string,
+    teamId: string,
+  ) => {
+    if (!currentEvent || !user) {
+      showToast("Cannot edit assignment: missing data.", "error");
+      throw new Error("Missing data");
+    }
 
+    const assignment = assignments.find((a) => a.id === assignmentId);
+    if (!assignment) {
+      showToast("Assignment not found.", "error");
+      throw new Error("Assignment not found");
+    }
+
+    const newTeamIds = assignment.teamIds.filter((id) => id !== teamId);
+    const assignmentRef = doc(
+      db,
+      `users/${user.uid}/events/${currentEvent.id}/assignments`,
+      assignmentId,
+    );
+
+    try {
+      if (newTeamIds.length === 0) {
+        await handleRemoveAssignment(assignmentId, assignment.judgeId);
+        showToast("Last team removed. Assignment deleted.", "success");
+      } else {
+        await updateDoc(assignmentRef, { teamIds: newTeamIds });
+        showToast("Team removed from assignment.", "success");
+      }
+    } catch (error) {
+      console.error("Error removing team from assignment:", error);
+      showToast("Failed to remove team.", "error");
+      throw error;
+    }
+  }; // --- End Handlers ---
+  // --- [NEW] Status Filter Button Component ---
+  const StatusFilterButton = ({
+    value,
+    label,
+    count,
+  }: {
+    value: typeof statusFilter;
+    label: string;
+    count: number;
+  }) => (
+    <button
+      onClick={() => setStatusFilter(value)}
+      className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+        statusFilter === value
+          ? "bg-orange-600 text-white"
+          : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+      }`}
+    >
+      {label} <span className="text-xs opacity-70">({count})</span>
+    </button>
+  ); // ---
   // Score Entry Form Rendering
   if (assignmentToScore) {
     return (
@@ -228,147 +493,224 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
         onBack={() => setAssignmentToScore(null)}
       />
     );
-  }
+  } // Robustness Check
 
-  // Robustness Check
   if (!currentEvent || !floor) {
     return (
       <MotionCard className="p-8 text-center text-zinc-400">
         Loading dashboard or data is unavailable...
       </MotionCard>
     );
-  }
+  } // --- [NEW] Main Render with 2-Column Layout ---
 
   return (
     <div>
-      {/* Judge Status Cards */}
-      <MotionCard className="mb-6 rounded-lg border border-zinc-800 bg-zinc-900/50 shadow-lg shadow-black/30">
-        <div className="mb-6 flex flex-col items-start justify-between gap-2 md:flex-row md:items-center">
-          <h1 className="text-3xl font-bold">{floor.name} Dashboard</h1>
-          <p className="text-lg text-zinc-400">{floorTeams.length} Teams</p>
-        </div>
-        <motion.div
-          className="grid grid-cols-1 gap-6 md:grid-cols-3"
-          variants={staggerContainer}
-          initial="initial"
-          animate="animate"
-        >
-          {/* Judges Out */}
-          <MotionCard variants={fadeInUp}>
-            <h2 className="mb-3 text-lg font-semibold text-amber-400">
-              Judges Out ({judgesOut.length})
-            </h2>
-            <div className="custom-scrollbar max-h-40 space-y-2 overflow-y-auto pr-2">
-              {judgesOut.length > 0 ? (
-                judgesOut.map((judge) => {
-                  const assignment = assignments.find(
-                    (a) => a.id === judge.currentAssignmentId,
-                  );
-                  return (
-                    <div
-                      key={judge.id}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-zinc-700/50 bg-zinc-800 p-2 text-sm"
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* --- LEFT COLUMN: JUDGE CONTROL PANEL --- */}
+        <div className="lg:col-span-1">
+          <MotionCard
+            className="lg:sticky lg:top-28" // Sticks to top on large screens
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="flex flex-col">
+              <h2 className="mb-4 text-xl font-bold">{floor.name} Dashboard</h2>
+              {/* Search */}
+              <div className="relative mb-3">
+                <Search className="absolute top-1/2 left-3 size-5 -translate-y-1/2 text-zinc-500" />
+                <Input
+                  type="text"
+                  placeholder="Search by judge name..."
+                  value={judgeSearch}
+                  onChange={(e) => setJudgeSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              {/* --- [NEW] Sort Dropdown --- */}
+              <div className="mb-3">
+                <CustomDropdown
+                  value={judgeSort}
+                  onChange={(val) => setJudgeSort(val as JudgeSort)}
+                  options={JUDGE_SORT_OPTIONS}
+                />
+              </div>
+              {/* --- */}
+
+              {/* Filters */}
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <StatusFilterButton
+                  value="all"
+                  label="All"
+                  count={judgesOnFloor.length}
+                />
+                <StatusFilterButton
+                  value="busy"
+                  label="Busy"
+                  count={
+                    judgesOnFloor.filter(
+                      (j) => judgeDetailsMap.get(j.id)?.status === "busy",
+                    ).length
+                  }
+                />
+                <StatusFilterButton
+                  value="assignable"
+                  label="Assignable"
+                  count={
+                    judgesOnFloor.filter(
+                      (j) => judgeDetailsMap.get(j.id)?.status === "assignable",
+                    ).length
+                  }
+                />
+                <StatusFilterButton
+                  value="finished"
+                  label="Finished"
+                  count={
+                    judgesOnFloor.filter(
+                      (j) => judgeDetailsMap.get(j.id)?.status === "finished",
+                    ).length
+                  }
+                />
+              </div>
+              {/* Judge List */}
+              <motion.div
+                layout
+                className="custom-scrollbar -mr-2 max-h-[calc(100vh-20rem)] space-y-2 overflow-y-auto pr-2"
+              >
+                <AnimatePresence>
+                  {filteredJudges.length > 0 ? (
+                    filteredJudges.map((judge) => {
+                      const details = judgeDetailsMap.get(judge.id);
+                      if (!details) return null;
+                      return (
+                        <JudgeListItem
+                          key={judge.id}
+                          judge={judge}
+                          status={details.status}
+                          currentTeams={details.currentTeams} // <-- [NEW] Pass prop
+                          onViewDetails={() => setViewingJudge(judge)}
+                          onEnterScores={() => {
+                            const assignment = assignmentMap.get(
+                              judge.currentAssignmentId!,
+                            );
+                            if (assignment) setAssignmentToScore(assignment);
+                          }}
+                        />
+                      );
+                    })
+                  ) : (
+                    <motion.div
+                      layout
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="flex flex-col items-center py-8 text-center text-sm text-zinc-500 italic"
                     >
-                      <Tooltip content="View Details / Move" position="right">
-                        <div
-                          className="flex flex-grow cursor-pointer items-center gap-3 overflow-hidden rounded p-1 hover:bg-zinc-700"
-                          onClick={() => setViewingJudge(judge)}
-                        >
-                          <span
-                            className={`h-2 w-2 flex-shrink-0 rounded-full ${getColorForJudge(judge.id)}`}
-                          ></span>
-                          <span
-                            className="truncate font-medium"
-                            title={judge.name}
-                          >
-                            {judge.name}
-                          </span>
-                        </div>
-                      </Tooltip>
-                      {assignment && (
-                        <Tooltip content="Enter scores for this assignment">
-                          <div>
-                            <Button
-                              onClick={() => setAssignmentToScore(assignment)}
-                              size="sm"
-                              className="ml-2 flex-shrink-0 bg-orange-600 hover:bg-orange-500"
-                            >
-                              <PlusIcon className="size-4" /> Scores
-                            </Button>
-                          </div>
-                        </Tooltip>
-                      )}
-                    </div>
+                      <XCircle className="mb-2 inline-block size-6" />
+                      No judges match filters.
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            </div>
+          </MotionCard>
+        </div>
+        {/* --- RIGHT COLUMN: TEAM VIEW --- */}
+        <div className="flex flex-col gap-6 lg:col-span-2">
+          {/* Active Teams Section */}
+          <MotionCard
+            className="rounded-lg border border-zinc-800 bg-zinc-900/50 shadow-lg shadow-black/30"
+            variants={fadeInUp}
+          >
+            <div className="mb-4 flex flex-col justify-between gap-4 md:flex-row md:items-center">
+              <div>
+                <h2 className="text-xl font-bold text-white">
+                  Active Teams ({visibleFloorTeams.length})
+                </h2>
+                <p className="text-sm text-zinc-400">
+                  {
+                    teams.filter((t) => t.floorId === floor.id && !t.isPaused)
+                      .length
+                  }{" "}
+                  total active teams on this floor.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <CustomDropdown
+                  value={teamFilter}
+                  onChange={(val) => setTeamFilter(val as TeamFilter)}
+                  options={TEAM_FILTER_OPTIONS}
+                  placeholder="Filter Teams"
+                />
+                <CustomDropdown
+                  value={teamSort}
+                  onChange={(val) => setTeamSort(val as TeamSort)}
+                  options={TEAM_SORT_OPTIONS}
+                  placeholder="Sort Teams"
+                />
+              </div>
+            </div>
+            <motion.div
+              className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3"
+              variants={staggerContainer}
+              initial="initial"
+              animate="animate"
+            >
+              {visibleFloorTeams.length > 0 ? (
+                visibleFloorTeams.map((team) => {
+                  const assignedJudgeIds = assignedJudgesMap.get(team.id) || [];
+                  return (
+                    <motion.div variants={fadeInUp} key={team.id}>
+                      <TeamCard
+                        team={team}
+                        onClick={() => setSelectedTeam(team)}
+                        assignedJudgeIds={assignedJudgeIds}
+                        onTogglePause={handleTogglePause}
+                      />
+                    </motion.div>
                   );
                 })
               ) : (
-                <div className="flex w-full flex-col items-center py-8 text-center text-sm text-zinc-500 italic">
-                  <Users className="mb-2 inline-block size-6" />
-                  No judges are currently out.
-                </div>
+                <p className="py-4 text-center text-sm text-zinc-500 italic sm:col-span-2 xl:col-span-3">
+                  No active teams match the current filters.
+                </p>
               )}
-            </div>
+            </motion.div>
           </MotionCard>
-          {/* Available Judges - Make clickable */}
-          <motion.div variants={fadeInUp}>
-            <JudgeList
-              title="Available Judges"
-              judges={judgesAvailable}
-              color="text-emerald-400"
-              canOpenModal={true}
-            />
-          </motion.div>
-          {/* Finished Judges - Make clickable */}
-          <motion.div variants={fadeInUp}>
-            <JudgeList
-              title="Finished on Floor"
-              judges={judgesFinished}
-              color="text-sky-400"
-              canOpenModal={true}
-            />
-          </motion.div>
-        </motion.div>
-      </MotionCard>
-
-      {/* Team Cards */}
-      <MotionCard className="mb-6 rounded-lg border border-zinc-800 bg-zinc-900/50 shadow-lg shadow-black/30">
-        <p className="mb-4 text-zinc-400">
-          {floorTeams?.length > 0
-            ? "Click on a team to see detailed scores."
-            : "No teams assigned to this floor yet."}
-        </p>
-        <motion.div
-          className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-          variants={staggerContainer}
-          initial="initial"
-          animate="animate"
-        >
-          {floorTeams.length > 0
-            ? floorTeams.map((team) => {
-                const assignedJudgeIds = assignedJudgesMap.get(team.id) || [];
-                return (
-                  <motion.div variants={fadeInUp} key={team.id}>
-                    <TeamCard
-                      team={team}
-                      onClick={() => setSelectedTeam(team)}
-                      assignedJudgeIds={assignedJudgeIds}
-                    />
-                  </motion.div>
-                );
-              })
-            : Array.from({ length: 4 }).map((_, index) => (
-                <motion.div variants={fadeInUp} key={index}>
-                  <div className="animate-pulse rounded-lg bg-zinc-800 p-4">
-                    <div className="mb-2 h-6 w-3/4 rounded bg-zinc-700"></div>
-                    <div className="mb-4 h-4 w-1/2 rounded bg-zinc-700"></div>
-                    <div className="h-4 w-full rounded bg-zinc-700"></div>
-                    <div className="mt-2 h-4 w-5/6 rounded bg-zinc-700"></div>
-                  </div>
-                </motion.div>
-              ))}
-        </motion.div>
-      </MotionCard>
-
+          {/* Paused Teams Section */}
+          {pausedFloorTeams.length > 0 && (
+            <MotionCard
+              className="rounded-lg border border-zinc-800 bg-zinc-900/50 shadow-lg shadow-black/30"
+              variants={fadeInUp}
+            >
+              <h2 className="mb-4 text-xl font-bold text-zinc-400">
+                Paused Teams ({pausedFloorTeams.length})
+              </h2>
+              <motion.div
+                className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3"
+                variants={staggerContainer}
+                initial="initial"
+                animate="animate"
+              >
+                {pausedFloorTeams.map((team) => {
+                  const assignedJudgeIds = assignedJudgesMap.get(team.id) || [];
+                  return (
+                    <motion.div variants={fadeInUp} key={team.id}>
+                      <TeamCard
+                        team={team}
+                        onClick={() => setSelectedTeam(team)}
+                        assignedJudgeIds={assignedJudgeIds}
+                        onTogglePause={handleTogglePause}
+                      />
+                    </motion.div>
+                  );
+                })}
+              </motion.div>
+            </MotionCard>
+          )}
+        </div>
+      </div>
       {/* Render Modals */}
       {selectedTeam && (
         <ScoreDetailModal
@@ -376,8 +718,6 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
           onClose={() => setSelectedTeam(null)}
         />
       )}
-
-      {/* Render Shared JudgeDetailsModal */}
       <JudgeDetailsModal
         isOpen={!!viewingJudge}
         judge={viewingJudge}
@@ -387,7 +727,7 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
         onClose={() => setViewingJudge(null)}
         onSwitchFloor={handleSwitchFloor}
         onRemoveAssignment={handleRemoveAssignment}
-        // No currentFloorId needed, inferred from judge
+        onRemoveTeamFromAssignment={handleRemoveTeamFromAssignment}
       />
     </div>
   );

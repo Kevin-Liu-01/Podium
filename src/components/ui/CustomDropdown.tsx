@@ -67,7 +67,9 @@ export const CustomDropdown = ({
                   }}
                   className="block w-full rounded-lg px-3 py-1.5 text-left text-sm text-zinc-200 transition-colors hover:bg-orange-600 hover:text-white"
                 >
-                  {option.label}
+                  <span className="truncate whitespace-nowrap">
+                    {option.label}
+                  </span>
                 </button>
               ))
             ) : (
