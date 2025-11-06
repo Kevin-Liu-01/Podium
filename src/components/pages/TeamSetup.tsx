@@ -23,21 +23,21 @@ import {
   Upload,
   List,
   Hash,
-  Pause, // [FEATURE 1] Added Icon
-  Play, // [FEATURE 1] Added Icon
+  Pause,
+  Play,
 } from "lucide-react";
 import { db } from "../../firebase/config";
 import { useAppContext } from "../../context/AppContext";
-import type { Team } from "../../lib/types"; // Ensure path is correct
-import MotionCard from "../ui/MotionCard"; // Ensure path is correct
-import { Button } from "../ui/Button"; // Ensure path is correct
-import { Input } from "../ui/Input"; // Ensure path is correct
-import ScoreDetailModal from "../shared/ScoreDetailModal"; // Ensure path is correct
+import type { Team } from "../../lib/types";
+import MotionCard from "../ui/MotionCard";
+import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
+import ScoreDetailModal from "../shared/ScoreDetailModal";
 import { AnimatePresence, motion } from "framer-motion";
-import { Card } from "../ui/Card"; // Ensure path is correct
-import { Label } from "../ui/Label"; // Ensure path is correct
-import ConfirmationDialog from "../ui/ConfirmationDialog"; // Ensure path is correct
-import Tooltip from "../ui/Tooltip"; // [FEATURE 1] Import Tooltip
+import { Card } from "../ui/Card";
+import { Label } from "../ui/Label";
+import ConfirmationDialog from "../ui/ConfirmationDialog";
+import Tooltip from "../ui/Tooltip";
 
 // Type for the team to be imported
 type ParsedTeam = {
@@ -78,7 +78,7 @@ const TeamSetup = () => {
   >(null);
   const [confirmContent, setConfirmContent] = useState<React.ReactNode>(null);
   const [confirmTitle, setConfirmTitle] = useState("");
-  const [isPausing, setIsPausing] = useState<string | null>(null); // [FEATURE 1] State for pausing
+  const [isPausing, setIsPausing] = useState<string | null>(null);
 
   // Effect to set default total teams based on floor ranges
   useEffect(() => {
@@ -104,7 +104,6 @@ const TeamSetup = () => {
     };
   }, [totalTeams, teamPrefix, startNumber]);
 
-  // --- [FEATURE 1] Handler for Pausing Teams ---
   const handleTogglePause = async (teamId: string) => {
     if (!currentEvent || !user) {
       showToast("Cannot update team: missing data.", "error");
@@ -218,7 +217,7 @@ const TeamSetup = () => {
             reviewedBy: [],
             totalScore: 0,
             averageScore: 0,
-            isPaused: false, // [FEATURE 2] Add pause field
+            isPaused: false,
           });
         }
       }
@@ -398,7 +397,7 @@ const TeamSetup = () => {
           reviewedBy: [],
           totalScore: 0,
           averageScore: 0,
-          isPaused: false, // [FEATURE 2] Add pause field
+          isPaused: false,
         });
       }
       await addBatch.commit();
@@ -468,7 +467,7 @@ const TeamSetup = () => {
         reviewedBy: [],
         totalScore: 0,
         averageScore: 0,
-        isPaused: false, // [FEATURE 2] Add pause field
+        isPaused: false,
       });
       showToast(`Team "${name}" (#${number}) added successfully!`, "success");
       setNewTeamNumber("");
@@ -896,12 +895,11 @@ const TeamSetup = () => {
                           {teamsOnFloor.map((team) => (
                             <MotionCard
                               key={team.id}
-                              onClick={() => handleSelectTeam(team)} // Use helper
+                              onClick={() => handleSelectTeam(team)}
                               className={`relative transform-gpu cursor-pointer rounded-lg bg-zinc-800/70 p-3 text-left shadow-md transition-all hover:-translate-y-1 hover:bg-zinc-700/90 hover:shadow-xl hover:shadow-orange-500/10 ${
-                                team.isPaused ? "opacity-40 grayscale" : "" // [FEATURE 2] Style paused
+                                team.isPaused ? "opacity-40 grayscale" : ""
                               }`}
                             >
-                              {/* [FEATURE 1] Pause/Play Button */}
                               <div className="absolute top-2 right-2 z-10">
                                 <Tooltip
                                   content={
@@ -930,10 +928,9 @@ const TeamSetup = () => {
                                   </button>
                                 </Tooltip>
                               </div>
-                              {/* --- End Feature 1 --- */}
 
                               <p
-                                className="truncate pr-6 font-bold text-white" // Added pr-6
+                                className="truncate pr-6 font-bold text-white"
                                 title={team.name}
                               >
                                 {team.name}

@@ -586,7 +586,6 @@ const AdminPanel = () => {
                     })}
                 </div>
               </Card>
-              {/* --- END NEW CARD --- */}
             </div>
 
             {/* --- ASSIGNMENT AREA --- */}

@@ -313,7 +313,7 @@ const ResultsView = () => {
         (r) => r.comments && r.comments.trim() !== "",
       ).length;
 
-      // [NEW] Get full comments with judge names for CSV
+      // Get full comments with judge names for CSV
       const allCommentsString = (team.reviewedBy || [])
         .filter((r) => r.comments && r.comments.trim() !== "")
         .map((r) => {
@@ -325,7 +325,7 @@ const ResultsView = () => {
         })
         .join("\n"); // Join multiple comments with a newline (Excel/Sheets handles this well)
 
-      // [NEW] Escape the final aggregated string by wrapping it in quotes
+      // Escape the final aggregated string by wrapping it in quotes
       const allCommentsEscaped = `"${allCommentsString}"`;
 
       // Escape commas in team name
@@ -338,7 +338,7 @@ const ResultsView = () => {
         floorName,
         reviews,
         commentCount,
-        allCommentsEscaped, // [MODIFIED] Use the new full comment string
+        allCommentsEscaped,
         high,
         low,
         avg,
@@ -350,7 +350,6 @@ const ResultsView = () => {
   };
 
   const handleExportMatrixCSV = () => {
-    // ... (This function remains unchanged) ...
     const sortedTeamsForMatrix = [...teams].sort((a, b) => a.number - b.number);
     const sortedJudgesForMatrix = [...judges].sort((a, b) =>
       a.name.localeCompare(b.name),

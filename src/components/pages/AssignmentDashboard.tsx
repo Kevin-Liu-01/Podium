@@ -33,6 +33,22 @@ import ScoreEntryForm from "../shared/ScoreEntryForm"; // Ensure path is correct
 import Tooltip from "../ui/Tooltip";
 import JudgeDetailsModal from "../shared/JudgeDetailsModal"; // <--- Import shared modal
 
+// --- Helper function for new logic ---
+/**
+ * Counts the number of common elements between two arrays.
+ * Assumes arrays do not contain duplicates.
+ */
+const getCommonTeamCount = (arr1: string[], arr2: string[]): number => {
+  const set1 = new Set(arr1);
+  let count = 0;
+  for (const id of arr2) {
+    if (set1.has(id)) {
+      count++;
+    }
+  }
+  return count;
+};
+
 // --- Judge List Item Component ---
 const JudgeListItem = ({
   judge,
@@ -131,7 +147,7 @@ const AssignmentDashboard = () => {
     [assignments],
   );
 
-  // --- [NEW] Memoized list of all active teams on the selected floor ---
+  // ---  Memoized list of all active teams on the selected floor ---
   const allTeamsOnFloor = useMemo(() => {
     return teams
       .filter((t) => t.floorId === selectedFloorId && !t.isPaused)
@@ -153,11 +169,6 @@ const AssignmentDashboard = () => {
     const allSubmitted = assignments.filter((a) => a.submitted);
     const allCurrent = assignments.filter((a) => !a.submitted);
 
-    // [MODIFIED] Use memoized allTeamsOnFloor
-    // const teamsOnFloor = teams
-    //   .filter((t) => t.floorId === selectedFloorId && !t.isPaused)
-    //   .sort((a, b) => a.number - b.number);
-
     for (const judge of judges) {
       if (judge.floorId !== selectedFloorId) continue;
 
@@ -169,20 +180,12 @@ const AssignmentDashboard = () => {
       const currentAssignment = allCurrent.find((a) => a.judgeId === judge.id);
       const currentIds = currentAssignment ? currentAssignment.teamIds : [];
 
-      // [MODIFIED] Use memoized allTeamsOnFloor
       const candidateTeams = allTeamsOnFloor.filter(
         (t) => !completedIds.has(t.id),
       );
-      let isPossible = false;
-      if (candidateTeams.length >= 5) {
-        for (let i = 0; i <= candidateTeams.length - 5; i++) {
-          const window = candidateTeams.slice(i, i + 5);
-          if (window[4].number - window[0].number <= 15) {
-            isPossible = true;
-            break;
-          }
-        }
-      }
+
+      const isPossible = candidateTeams.length >= 5;
+
       const isFinished = !isPossible && completedIds.size > 0;
       const status = judge.currentAssignmentId
         ? "busy"
@@ -270,7 +273,7 @@ const AssignmentDashboard = () => {
     } else {
       setManualSelectedJudgeId("");
     }
-  }, [selectedFloorId, assignableJudges]); // Removed manualSelectedJudgeId
+  }, [selectedFloorId, assignableJudges]);
 
   useEffect(() => {
     setManualSelectedTeamIds([]);
@@ -356,7 +359,7 @@ const AssignmentDashboard = () => {
     }
   };
 
-  // [FEATURE 3] Handler to remove a single team from an assignment
+  // Handler to remove a single team from an assignment
   const handleRemoveTeamFromAssignment = async (
     assignmentId: string,
     teamId: string,
@@ -403,21 +406,15 @@ const AssignmentDashboard = () => {
     if (!selectedFloorId) return showToast("Please select a floor.", "error");
     setIsAssigning(true);
     try {
-      // [MODIFIED] Use memoized allTeamsOnFloor
-      // const allTeamsOnFloor = teams
-      //   .filter((t) => t.floorId === selectedFloorId && !t.isPaused)
-      //   .sort((a, b) => a.number - b.number);
       const allSubmittedAssignments = assignments.filter((a) => a.submitted);
-      const activeAssignments = assignments.filter((a) => !a.submitted);
 
-      const globallyLockedTeamIds = new Set(
-        activeAssignments.flatMap((a) => a.teamIds),
-      );
+      const globallyLockedTeamIds = new Set<string>();
+
       const selectedJudgesList = autoSelectedJudgeIds
         .map((id) => judges.find((j) => j.id === id))
         .filter((j): j is Judge => !!j);
 
-      // --- [FEATURE 1] Overlap Logic ---
+      // --- Overlap Logic ---
       const availablePool = allTeamsOnFloor.filter(
         (team) => !globallyLockedTeamIds.has(team.id),
       );
@@ -425,13 +422,24 @@ const AssignmentDashboard = () => {
       const maxExclusiveBlocks = Math.floor(availablePool.length / 5);
       const isOverlapMode = numJudgesToAssign > maxExclusiveBlocks;
 
-      // This map tracks pressure *within this batch*
       const ephemeralPressureMap = new Map<string, number>(
         allTeamsOnFloor.map((t) => [t.id, t.reviewedBy.length]),
       );
-      // This Set tracks which blocks are assigned *in this batch* for reversal
       const assignedBlockSignatures = new Set<string>();
-      // --- End Feature 1 Logic ---
+
+      // --- [Hammad's Rule] ---
+      // Store as array of ID arrays for comparison
+      const submittedBlockArrays: string[][] = [];
+      for (const assignment of allSubmittedAssignments) {
+        // We only care about standard 5-team blocks for this rule
+        if (
+          assignment.teamIds.length === 5 &&
+          assignment.floorId === selectedFloorId
+        ) {
+          // Store the sorted array of IDs
+          submittedBlockArrays.push([...assignment.teamIds].sort());
+        }
+      }
 
       const newAssignmentsToCreate: { judge: Judge; teams: Team[] }[] = [];
       const failedAssignments: { judgeName: string; reason: string }[] = [];
@@ -443,7 +451,6 @@ const AssignmentDashboard = () => {
             .flatMap((a) => a.teamIds),
         );
 
-        // --- [MODIFIED] More specific failure reasons ---
         const teamsJudgeCouldSee = allTeamsOnFloor.filter(
           (team) => !alreadyJudgedIds.has(team.id),
         );
@@ -466,60 +473,68 @@ const AssignmentDashboard = () => {
           });
           continue;
         }
-        // --- [END MODIFICATION] ---
 
         let bestAssignment: Team[] | null = null;
-        let lowestPressureScore = Infinity;
+        let lowestTotalScore = Infinity;
 
-        // Pass 1: Strict search
+        // Single pass logic
         for (let i = 0; i <= candidateTeams.length - 5; i++) {
           const window = candidateTeams.slice(i, i + 5);
-          if (window[4].number - window[0].number > 15) continue;
+          const windowTeamIds = window.map((t) => t.id).sort(); // Get sorted IDs
 
-          // [FEATURE 1] Read from ephemeral pressure map
+          // --- [Hammad's Rule Check] ---
+          // "Linear scan" all submitted blocks for high similarity
+          let isTooSimilar = false;
+          for (const submittedBlock of submittedBlockArrays) {
+            const commonCount = getCommonTeamCount(
+              windowTeamIds,
+              submittedBlock,
+            );
+            // Block if 4 or 5 teams are the same
+            if (commonCount >= 4) {
+              isTooSimilar = true;
+              break; // No need to check others
+            }
+          }
+
+          if (isTooSimilar) {
+            continue; // Skip this block, it's too similar to a past one
+          }
+
+          // Calculate pressure score
           const pressureScore = window.reduce(
             (sum, team) => sum + (ephemeralPressureMap.get(team.id) || 0),
             0,
           );
-          if (pressureScore < lowestPressureScore) {
-            lowestPressureScore = pressureScore;
+
+          // Calculate closeness penalty
+          const closenessPenalty = window[4].number - window[0].number;
+
+          // Combine scores
+          const totalScore = pressureScore * 1000 + closenessPenalty;
+
+          if (totalScore < lowestTotalScore) {
+            lowestTotalScore = totalScore;
             bestAssignment = window;
-          }
-        }
-        // Pass 2: Relaxed search (if needed)
-        if (bestAssignment === null) {
-          lowestPressureScore = Infinity;
-          for (let i = 0; i <= candidateTeams.length - 5; i++) {
-            const window = candidateTeams.slice(i, i + 5);
-            // [FEATURE 1] Read from ephemeral pressure map
-            const pressureScore = window.reduce(
-              (sum, team) => sum + (ephemeralPressureMap.get(team.id) || 0),
-              0,
-            );
-            if (pressureScore < lowestPressureScore) {
-              lowestPressureScore = pressureScore;
-              bestAssignment = window;
-            }
           }
         }
 
         if (bestAssignment) {
-          // --- [FEATURE 1] Reversal Logic ---
+          // --- Reversal Logic ---
           const blockSignature = bestAssignment.map((t) => t.id).join("_");
-          let finalTeams = bestAssignment; // Default: 16, 17, 18, 19, 20
+          let finalTeams = bestAssignment;
 
           if (assignedBlockSignatures.has(blockSignature)) {
             // This is an overlap! Reverse the array.
-            finalTeams = [...bestAssignment].reverse(); // Becomes: 20, 19, 18, 17, 16
+            finalTeams = [...bestAssignment].reverse();
           } else {
             // First time this block is assigned in this batch.
             assignedBlockSignatures.add(blockSignature);
           }
-          // --- End Feature 1 Reversal ---
 
           newAssignmentsToCreate.push({ judge, teams: finalTeams });
 
-          // --- [FEATURE 1] Update Pressure/Locks ---
+          // --- Update Pressure/Locks ---
           if (isOverlapMode) {
             // In overlap mode, just update pressure for the next judge
             for (const team of bestAssignment) {
@@ -532,12 +547,11 @@ const AssignmentDashboard = () => {
               globallyLockedTeamIds.add(team.id),
             );
           }
-          // --- End Feature 1 Pressure Update ---
         } else {
-          // [MODIFIED] More specific failure reason
           failedAssignments.push({
             judgeName: judge.name,
-            reason: "no suitable group of 5 teams found (check team # ranges)",
+            reason:
+              "no suitable group of 5 teams found (all available blocks may be judged or too similar to past)",
           });
         }
       }
@@ -549,7 +563,7 @@ const AssignmentDashboard = () => {
           const assignmentRef = doc(collection(db, `${basePath}/assignments`));
           batch.set(assignmentRef, {
             judgeId: judge.id,
-            teamIds: teams.map((t) => t.id), // `teams` is now correctly ordered
+            teamIds: teams.map((t) => t.id),
             submitted: false,
             createdAt: Timestamp.now(),
             floorId: selectedFloorId,
@@ -573,7 +587,6 @@ const AssignmentDashboard = () => {
           duration: 8000,
         });
       }
-      // [REMOVED] Impossible toast condition was removed
     } catch (error) {
       console.error("Failed to generate assignments:", error);
       showToast("An error occurred during assignments.", "error");
@@ -662,7 +675,6 @@ const AssignmentDashboard = () => {
 
   return (
     <>
-      {/* [FEATURE 3] Pass new prop to modal */}
       <JudgeDetailsModal
         isOpen={!!viewingJudge}
         judge={viewingJudge}
@@ -819,13 +831,12 @@ const AssignmentDashboard = () => {
                                       </p>
                                     </Tooltip>
                                   )}
-                                  {/* --- [END NEW] --- */}
                                 </div>
                               </label>
                             );
                           })
                         ) : (
-                          <p className="flex h-full flex-col items-center justify-center gap-2 pt-4 text-center text-sm text-zinc-500 italic">
+                          <p className="col-span-2 flex h-full flex-col items-center justify-center gap-2 pt-4 text-center text-sm text-zinc-500 italic">
                             <UserMinus className="mr-2 size-6" /> No assignable
                             judges.
                           </p>

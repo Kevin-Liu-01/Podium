@@ -60,7 +60,7 @@ const ScoreEntryForm = ({
       assignment.teamIds
         .map((id) => teams.find((p) => p.id === id))
         .filter((p): p is Team => !!p)
-        // [FEATURE 1] Sort by team number if order is forward,
+        // Sort by team number if order is forward,
         // or reverse team number if order is reversed (e.g., 20, 19, 18...)
         // We detect this by checking if the first team ID has a lower number
         // than the last team ID.
@@ -81,7 +81,7 @@ const ScoreEntryForm = ({
     [assignment, teams],
   );
 
-  // --- [NEW] useEffect to default rankings to 0 (Unranked) ---
+  // --- useEffect to default rankings to 0 (Unranked) ---
   useEffect(() => {
     setRankings((prevRankings) => {
       const newRankings = { ...prevRankings };
@@ -210,7 +210,6 @@ const ScoreEntryForm = ({
     }
   };
 
-  // --- [NEW] Handler for Deleting the Assignment ---
   const handleDeleteAssignment = async () => {
     if (!user || !currentEvent || !judge) {
       showToast("Error: Cannot delete, missing data.", "error");
@@ -415,7 +414,6 @@ const ScoreEntryForm = ({
         </div>
       </MotionCard>
 
-      {/* --- [NEW] Confirmation Dialog --- */}
       <ConfirmationDialog
         isOpen={isConfirmOpen}
         onClose={() => setIsConfirmOpen(false)}

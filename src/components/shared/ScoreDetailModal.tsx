@@ -75,7 +75,7 @@ const ScoreDetailModal = ({
     // Calculate updates based on the CURRENT team data
     const newReviewedBy = team.reviewedBy.map((r) =>
       r.judgeId === editingReview.judgeId
-        ? { ...r, rank: newRank, score: newScore, comments: editingComment } // [FEATURE 3] Add comments
+        ? { ...r, rank: newRank, score: newScore, comments: editingComment }
         : r,
     );
     const currentTotalScore =
@@ -85,7 +85,6 @@ const ScoreDetailModal = ({
       newReviewedBy.length > 0 ? newTotalScore / newReviewedBy.length : 0;
 
     const updatedTeamDataForState = {
-      // Renamed variable for clarity
       ...team,
       reviewedBy: newReviewedBy,
       totalScore: newTotalScore,
@@ -117,7 +116,7 @@ const ScoreDetailModal = ({
 
       showToast("Review updated successfully!", "success");
       setEditingReview(null);
-      setEditingComment(""); // [FEATURE 3] Clear comment
+      setEditingComment("");
     } catch (error) {
       console.error("Error updating review:", error);
       showToast("Failed to update review. Please try again.", "error");
@@ -126,7 +125,6 @@ const ScoreDetailModal = ({
     }
   };
 
-  // --- [FEATURE 3] Delete Review Logic ---
   const handleDeleteClick = (review: Review) => {
     setReviewToDelete(review);
     setShowDeleteConfirm(true);
@@ -190,9 +188,7 @@ const ScoreDetailModal = ({
       setReviewToDelete(null);
     }
   };
-  // --- End [FEATURE 3] ---
 
-  // --- [NEW] Pause Team Logic ---
   const handleTogglePause = async () => {
     if (!currentEvent || !user || !team) {
       showToast("Cannot update team: missing data.", "error");
@@ -234,7 +230,6 @@ const ScoreDetailModal = ({
       setIsPausing(false);
     }
   };
-  // --- End [NEW] ---
 
   return (
     <>
@@ -335,7 +330,6 @@ const ScoreDetailModal = ({
                             className={`rounded-md p-3 transition-colors duration-200 ${isEditingThis ? "bg-zinc-700 ring-2 ring-orange-500" : "bg-zinc-800/80"}`}
                           >
                             {isEditingThis ? (
-                              /* --- [FEATURE 3] Editing UI --- */
                               <div className="flex flex-col gap-3">
                                 <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
                                   {/* Judge Info */}
@@ -366,7 +360,6 @@ const ScoreDetailModal = ({
                                     ))}
                                   </div>
                                 </div>
-                                {/* [FEATURE 3] Comment Textarea */}
                                 <textarea
                                   value={editingComment}
                                   onChange={(e) =>
@@ -402,7 +395,6 @@ const ScoreDetailModal = ({
                                 </div>
                               </div>
                             ) : (
-                              /* --- [FEATURE 3] Display UI --- */
                               <div>
                                 <div className="flex items-center justify-between">
                                   {/* Judge Info */}
@@ -452,7 +444,6 @@ const ScoreDetailModal = ({
                                     </Tooltip>
                                   </div>
                                 </div>
-                                {/* [FEATURE 3] Display Comments */}
                                 {review.comments && (
                                   <blockquote className="mt-3 border-l-2 border-zinc-600 pl-3 text-sm text-zinc-300 italic">
                                     {review.comments}
@@ -476,7 +467,6 @@ const ScoreDetailModal = ({
         )}
       </AnimatePresence>
 
-      {/* --- [FEATURE 3] Delete Confirmation Dialog --- */}
       <ConfirmationDialog
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}

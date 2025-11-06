@@ -27,7 +27,6 @@ interface JudgeDetailsModalProps {
   // Optional action handlers - parent decides if they are needed
   onSwitchFloor?: (judgeId: string, newFloorId: string) => Promise<void>;
   onRemoveAssignment?: (assignmentId: string, judgeId: string) => Promise<void>;
-  // [FEATURE 3] New prop
   onRemoveTeamFromAssignment?: (
     assignmentId: string,
     teamId: string,
@@ -43,13 +42,12 @@ const JudgeDetailsModal = ({
   onClose,
   onSwitchFloor,
   onRemoveAssignment,
-  onRemoveTeamFromAssignment, // [FEATURE 3] Get new prop
+  onRemoveTeamFromAssignment,
 }: JudgeDetailsModalProps) => {
   const [targetFloorId, setTargetFloorId] = useState("");
   const [isSwitchingFloor, setIsSwitchingFloor] = useState(false);
   const [isRemovingAssignment, setIsRemovingAssignment] = useState(false); // Loading state for remove
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false); // Confirmation state
-  // [FEATURE 3] State to track which team is being removed
   const [isRemovingTeam, setIsRemovingTeam] = useState<string | null>(null);
 
   // Internal calculation of team details
@@ -129,7 +127,6 @@ const JudgeDetailsModal = ({
     }
   };
 
-  // [FEATURE 3] Handler to remove a single team
   const handleRemoveTeamClick = async (teamId: string) => {
     if (!onRemoveTeamFromAssignment || !currentAssignment) return;
     setIsRemovingTeam(teamId);
@@ -193,7 +190,6 @@ const JudgeDetailsModal = ({
                       </h4>
                       {currentTeams.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
-                          {/* [FEATURE 3] Modified team list */}
                           {currentTeams?.map((t) => (
                             <span
                               key={t.id}

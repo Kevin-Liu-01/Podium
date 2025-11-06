@@ -158,22 +158,18 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
 
   const [isHandlingSwitchFloor, setIsHandlingSwitchFloor] = useState(false);
   const [isHandlingRemoveAssignment, setIsHandlingRemoveAssignment] =
-    useState(false); // State for team sorting and filtering
+    useState(false);
 
   type TeamSort = "number" | "most-seen" | "least-seen";
   type TeamFilter = "all" | "assigned" | "unassigned";
   const [teamSort, setTeamSort] = useState<TeamSort>("number");
   const [teamFilter, setTeamFilter] = useState<TeamFilter>("all");
-
-  // --- [NEW] State for Judge Panel ---
   const [judgeSearch, setJudgeSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<
     "all" | "busy" | "assignable" | "finished"
   >("all");
-  // --- [NEW] State for Judge Sorting ---
   type JudgeSort = "name" | "most-completed" | "least-completed";
   const [judgeSort, setJudgeSort] = useState<JudgeSort>("name");
-  // ---
 
   // --- Memoized Data Maps ---
   const teamMap = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
@@ -285,13 +281,7 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
             return a.name.localeCompare(b.name);
         }
       });
-  }, [
-    judgesOnFloor,
-    judgeSearch,
-    statusFilter,
-    judgeDetailsMap,
-    judgeSort, // Added dependency
-  ]); // --- End New Judge Logic ---
+  }, [judgesOnFloor, judgeSearch, statusFilter, judgeDetailsMap, judgeSort]);
 
   // --- Team Lists (Unchanged) ---
   const visibleFloorTeams = useMemo(() => {
@@ -463,7 +453,7 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
       throw error;
     }
   }; // --- End Handlers ---
-  // --- [NEW] Status Filter Button Component ---
+
   const StatusFilterButton = ({
     value,
     label,
@@ -500,16 +490,14 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
         Loading dashboard or data is unavailable...
       </MotionCard>
     );
-  } // --- [NEW] Main Render with 2-Column Layout ---
+  }
 
   return (
     <div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* --- LEFT COLUMN: JUDGE CONTROL PANEL --- */}
         <div className="lg:col-span-1">
-          <MotionCard
-            className="lg:sticky lg:top-28" // Sticks to top on large screens
-          >
+          <MotionCard className="lg:sticky lg:top-28">
             <div className="flex flex-col">
               <h2 className="mb-4 text-xl font-bold">{floor.name} Dashboard</h2>
               {/* Search */}
@@ -585,7 +573,7 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
                           key={judge.id}
                           judge={judge}
                           status={details.status}
-                          currentTeams={details.currentTeams} // <-- [NEW] Pass prop
+                          currentTeams={details.currentTeams}
                           onViewDetails={() => setViewingJudge(judge)}
                           onEnterScores={() => {
                             const assignment = assignmentMap.get(

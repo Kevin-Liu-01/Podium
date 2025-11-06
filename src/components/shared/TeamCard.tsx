@@ -1,24 +1,24 @@
 // shared/TeamCard.tsx
 import React, { useMemo } from "react";
-import { Star, MessageSquare, Users, Pause, Play } from "lucide-react"; // [FEATURE 2] Add Pause/Play
+import { Star, MessageSquare, Users, Pause, Play } from "lucide-react";
 import type { Team, Judge } from "../../lib/types";
 import { useAppContext } from "../../context/AppContext";
 import MotionCard from "../ui/MotionCard";
 import ReviewedJudgeCircle from "./ReviewedJudgeCircle";
-import Tooltip from "../ui/Tooltip"; // Import the new Tooltip component
+import Tooltip from "../ui/Tooltip";
 
 interface TeamCardProps {
   team: Team;
   onClick: () => void;
   assignedJudgeIds: string[];
-  onTogglePause: (teamId: string) => void; // [FEATURE 2] Add handler prop
+  onTogglePause: (teamId: string) => void;
 }
 
 const TeamCard = ({
   team,
   onClick,
   assignedJudgeIds,
-  onTogglePause, // [FEATURE 2] Get handler
+  onTogglePause,
 }: TeamCardProps) => {
   const { judges } = useAppContext();
 
@@ -44,7 +44,6 @@ const TeamCard = ({
       ? `Assigned to: ${assignedJudges.map((j) => j.name).join(", ")}`
       : "";
 
-  // [FEATURE 2] Handle pause button click
   const handlePauseClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card's onClick from firing
     onTogglePause(team.id);
@@ -54,10 +53,9 @@ const TeamCard = ({
     <MotionCard
       onClick={onClick}
       className={`group/card relative flex h-full cursor-pointer flex-col justify-between gap-4 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-orange-500/50 hover:shadow-2xl hover:shadow-orange-500/10 ${
-        team.isPaused ? "opacity-40 grayscale" : "" // [FEATURE 2] Style if paused
+        team.isPaused ? "opacity-40 grayscale" : ""
       }`}
     >
-      {/* [FEATURE 2] Pause/Play Button */}
       <div className="absolute right-3 bottom-3 z-10">
         <Tooltip content={team.isPaused ? "Resume Team" : "Pause Team"}>
           <button
@@ -76,7 +74,6 @@ const TeamCard = ({
           </button>
         </Tooltip>
       </div>
-      {/* --- */}
 
       {/* Assigned indicator now uses the Tooltip component */}
       {assignedJudges.length > 0 && (
