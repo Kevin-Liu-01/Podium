@@ -83,7 +83,7 @@ const EventCard = ({ event, onDelete }: EventCardProps) => {
   };
 
   const eventDate = event.createdAt
-    ? (event.createdAt as Timestamp).toDate().toLocaleDateString("en-US", {
+    ? event.createdAt.toDate().toLocaleDateString("en-US", {
         year: "numeric",
         month: "long",
         day: "numeric",

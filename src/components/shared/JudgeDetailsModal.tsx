@@ -8,9 +8,9 @@ import {
   XCircle,
   Loader2,
   AlertTriangle,
-  X, // Import X
+  X,
 } from "lucide-react";
-import { useAppContext } from "../../context/AppContext";
+// import { useAppContext } from "../../context/AppContext";
 import type { Assignment, Judge, Team, Floor } from "../../lib/types";
 import { Button } from "../ui/Button";
 import { CustomDropdown } from "../ui/CustomDropdown";
@@ -314,7 +314,6 @@ const JudgeDetailsModal = ({
                                 .filter((f) => f.id !== currentJudgeFloorId)
                                 .map((f) => ({ value: f.id, label: f.name }))}
                               placeholder="Select destination..."
-                              className="flex-grow" // Allow dropdown to take space
                             />
                             <Tooltip
                               content="Move this judge to the selected floor. This can only be done once per judge."

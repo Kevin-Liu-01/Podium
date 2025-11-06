@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo } from "react"; // Added useMemo
+import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { doc, updateDoc } from "firebase/firestore";
 import {
@@ -380,7 +380,6 @@ const ScoreDetailModal = ({
                                 <div className="flex justify-end gap-2 border-t border-zinc-600 pt-3">
                                   <Button
                                     onClick={() => setEditingReview(null)}
-                                    variant="secondary"
                                     size="sm"
                                   >
                                     {" "}
@@ -434,8 +433,7 @@ const ScoreDetailModal = ({
                                             review.comments || "",
                                           );
                                         }}
-                                        variant="ghost"
-                                        size="icon-sm"
+                                        size="sm"
                                         className="text-zinc-400 transition-colors hover:text-orange-500"
                                       >
                                         <Pencil className="h-4 w-4" />
@@ -446,8 +444,7 @@ const ScoreDetailModal = ({
                                         onClick={() =>
                                           handleDeleteClick(review)
                                         }
-                                        variant="ghost"
-                                        size="icon-sm"
+                                        size="sm"
                                         className="text-zinc-400 transition-colors hover:text-rose-500"
                                       >
                                         <Trash2 className="h-4 w-4" />

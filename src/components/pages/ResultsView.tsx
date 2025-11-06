@@ -104,7 +104,7 @@ const ReviewMatrix = ({
           animate="animate"
         >
           {sortedTeams.map((team) => {
-            const reviewedBy = reviewMap.get(team.id) || new Set();
+            const reviewedBy = reviewMap.get(team.id) ?? new Set();
             return (
               <motion.tr
                 key={team.id}
@@ -269,30 +269,14 @@ const ResultsView = () => {
   }, [teams, searchQuery, floorFilter, sortBy]);
 
   const getRankIcon = (rank: number) => {
-    // ... getRankIcon logic remains the same ...
     const rankNum = rank + 1;
     switch (rank) {
       case 0:
-        return (
-          <Trophy
-            className="inline-block size-5 text-yellow-400"
-            title="1st Place"
-          />
-        );
+        return <Trophy className="inline-block size-5 text-yellow-400" />;
       case 1:
-        return (
-          <Medal
-            className="inline-block size-5 text-gray-300"
-            title="2nd Place"
-          />
-        );
+        return <Medal className="inline-block size-5 text-gray-300" />;
       case 2:
-        return (
-          <Medal
-            className="inline-block size-5 text-amber-600"
-            title="3rd Place"
-          />
-        );
+        return <Medal className="inline-block size-5 text-amber-600" />;
       default:
         return (
           <span className="text-sm font-medium text-zinc-400">{rankNum}</span>
@@ -486,17 +470,15 @@ const ResultsView = () => {
           </div>
           <CustomDropdown
             value={floorFilter}
-            onChange={(val) => setFloorFilter(val as string)}
+            onChange={(val) => setFloorFilter(val)}
             options={floorOptions}
             placeholder="Filter by floor..."
-            disabled={viewMode === "matrix"}
           />
           <CustomDropdown
             value={sortBy}
             onChange={(val) => setSortBy(val as SortKey)}
             options={SORT_OPTIONS}
             placeholder="Sort by..."
-            disabled={viewMode === "matrix"}
           />
         </div>
         {/* Dynamic Download Button */}
@@ -595,7 +577,7 @@ const ResultsView = () => {
                         {team.number}
                       </td>
                       <td className="px-4 py-3 text-center text-sm text-zinc-300">
-                        {floor?.name || "N/A"}
+                        {floor?.name ?? "N/A"}
                       </td>
                       <td className="px-4 py-3 text-center text-sm text-zinc-300">
                         {team.reviewedBy?.length ?? 0}

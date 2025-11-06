@@ -6,7 +6,7 @@ import { doc, updateDoc } from "firebase/firestore";
 import { Save, XCircle, Loader2, AlertTriangle, X } from "lucide-react";
 import { db } from "../../firebase/config";
 import { useAppContext } from "../../context/AppContext";
-import type { Team, Floor } from "../../lib/types";
+import type { Team } from "../../lib/types";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Label } from "../ui/Label";
@@ -170,7 +170,6 @@ const EditTeamModal = ({ team, isOpen, onClose }: EditTeamModalProps) => {
               <div>
                 <Label htmlFor="edit-team-floor">Floor</Label>
                 <CustomDropdown
-                  id="edit-team-floor"
                   value={floorId}
                   onChange={setFloorId}
                   options={floorOptions}
@@ -187,7 +186,7 @@ const EditTeamModal = ({ team, isOpen, onClose }: EditTeamModalProps) => {
             </div>
 
             <div className="mt-6 flex justify-end gap-2 border-t border-zinc-800 pt-4">
-              <Button onClick={onClose} variant="secondary">
+              <Button onClick={onClose}>
                 <XCircle className="mr-2 size-4" />
                 Cancel
               </Button>

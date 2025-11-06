@@ -19,12 +19,14 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
+  Users2,
 } from "lucide-react";
 import { db } from "../../firebase/config";
 import Tooltip from "../ui/Tooltip";
 import JudgeDetailsModal from "../shared/JudgeDetailsModal";
 import { CustomDropdown } from "../ui/CustomDropdown";
 import { Input } from "../ui/Input";
+import { Card } from "../ui/Card";
 
 const TEAM_SORT_OPTIONS = [
   { value: "number", label: "Sort by Team #" },
@@ -101,13 +103,13 @@ const JudgeListItem = ({
           </div>
         </div>
         <Tooltip content="View Judge Details / Move" position="left">
-          <Button onClick={onViewDetails} variant="secondary" size="icon-sm">
+          <Button onClick={onViewDetails} size="sm">
             <SlidersHorizontal className="size-4" />
           </Button>
         </Tooltip>
       </div>
 
-      {/* [NEW] Middle section: Active Teams (if busy) */}
+      {/* Middle section: Active Teams (if busy) */}
       {status === "busy" && currentTeams.length > 0 && (
         <div className="border-t border-zinc-700/50 pt-3">
           <p className="mb-1.5 text-xs font-semibold text-zinc-400">
@@ -186,13 +188,13 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
     for (const assignment of activeAssignments) {
       if (assignment.judgeId && Array.isArray(assignment.teamIds)) {
         for (const teamId of assignment.teamIds) {
-          const existing = map.get(teamId) || [];
+          const existing = map.get(teamId) ?? [];
           map.set(teamId, [...existing, assignment.judgeId]);
         }
       }
     }
     return map;
-  }, [assignments]); // --- [NEW] Judge Status Logic (Adapted from AssignmentDashboard) ---
+  }, [assignments]); // --- Judge Status Logic (Adapted from AssignmentDashboard) ---
 
   const judgeDetailsMap = useMemo(() => {
     const details = new Map<
@@ -507,9 +509,6 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
         <div className="lg:col-span-1">
           <MotionCard
             className="lg:sticky lg:top-28" // Sticks to top on large screens
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
           >
             <div className="flex flex-col">
               <h2 className="mb-4 text-xl font-bold">{floor.name} Dashboard</h2>
@@ -525,12 +524,13 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
                 />
               </div>
 
-              {/* --- [NEW] Sort Dropdown --- */}
+              {/* --- Sort Dropdown --- */}
               <div className="mb-3">
                 <CustomDropdown
                   value={judgeSort}
                   onChange={(val) => setJudgeSort(val as JudgeSort)}
                   options={JUDGE_SORT_OPTIONS}
+                  placeholder="Sort Judges"
                 />
               </div>
               {/* --- */}
@@ -597,16 +597,12 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
                       );
                     })
                   ) : (
-                    <motion.div
-                      layout
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="flex flex-col items-center py-8 text-center text-sm text-zinc-500 italic"
-                    >
-                      <XCircle className="mb-2 inline-block size-6" />
-                      No judges match filters.
-                    </motion.div>
+                    <Card className="col-span-1 flex h-full flex-col items-center justify-center gap-2 py-8 text-center sm:col-span-2 xl:col-span-3">
+                      <XCircle className="inline-block size-6" />
+                      <p className="text-zinc-500 italic">
+                        No judges match filters.
+                      </p>
+                    </Card>
                   )}
                 </AnimatePresence>
               </motion.div>
@@ -616,10 +612,7 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
         {/* --- RIGHT COLUMN: TEAM VIEW --- */}
         <div className="flex flex-col gap-6 lg:col-span-2">
           {/* Active Teams Section */}
-          <MotionCard
-            className="rounded-lg border border-zinc-800 bg-zinc-900/50 shadow-lg shadow-black/30"
-            variants={fadeInUp}
-          >
+          <MotionCard className="h-full rounded-lg border border-zinc-800 bg-zinc-900/50 shadow-lg shadow-black/30">
             <div className="mb-4 flex flex-col justify-between gap-4 md:flex-row md:items-center">
               <div>
                 <h2 className="text-xl font-bold text-white">
@@ -649,14 +642,14 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
               </div>
             </div>
             <motion.div
-              className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3"
+              className="grid h-[calc(100%-4rem)] grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3"
               variants={staggerContainer}
               initial="initial"
               animate="animate"
             >
               {visibleFloorTeams.length > 0 ? (
                 visibleFloorTeams.map((team) => {
-                  const assignedJudgeIds = assignedJudgesMap.get(team.id) || [];
+                  const assignedJudgeIds = assignedJudgesMap.get(team.id) ?? [];
                   return (
                     <motion.div variants={fadeInUp} key={team.id}>
                       <TeamCard
@@ -669,18 +662,19 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
                   );
                 })
               ) : (
-                <p className="py-4 text-center text-sm text-zinc-500 italic sm:col-span-2 xl:col-span-3">
-                  No active teams match the current filters.
-                </p>
+                <Card className="col-span-1 flex h-full flex-col items-center justify-center gap-4 text-center sm:col-span-2 xl:col-span-3">
+                  <Users2 className="size-16 text-zinc-700" />
+                  <p className="font-semibold text-zinc-400">No Teams Added</p>
+                  <p className="text-zinc-500 italic">
+                    No active teams match the current filters.
+                  </p>
+                </Card>
               )}
             </motion.div>
           </MotionCard>
           {/* Paused Teams Section */}
           {pausedFloorTeams.length > 0 && (
-            <MotionCard
-              className="rounded-lg border border-zinc-800 bg-zinc-900/50 shadow-lg shadow-black/30"
-              variants={fadeInUp}
-            >
+            <MotionCard className="rounded-lg border border-zinc-800 bg-zinc-900/50 shadow-lg shadow-black/30">
               <h2 className="mb-4 text-xl font-bold text-zinc-400">
                 Paused Teams ({pausedFloorTeams.length})
               </h2>
@@ -691,7 +685,7 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
                 animate="animate"
               >
                 {pausedFloorTeams.map((team) => {
-                  const assignedJudgeIds = assignedJudgesMap.get(team.id) || [];
+                  const assignedJudgeIds = assignedJudgesMap.get(team.id) ?? [];
                   return (
                     <motion.div variants={fadeInUp} key={team.id}>
                       <TeamCard

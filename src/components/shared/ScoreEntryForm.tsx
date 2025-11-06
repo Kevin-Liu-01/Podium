@@ -14,7 +14,7 @@ import {
   Trash2,
   AlertTriangle,
   MessageSquarePlus,
-  Save, // Added Save icon
+  Save,
 } from "lucide-react";
 import ConfirmationDialog from "../ui/ConfirmationDialog";
 
@@ -33,22 +33,20 @@ const ScoreEntryForm = ({
   const [isDeleting, setIsDeleting] = useState(false);
   // -------------------------
 
-  // --- [UPDATED] State for Rankings ---
+  // --- State for Rankings ---
   // Now initialized by useEffect
-  const [rankings, setRankings] = useState<{
-    [teamId: string]: Review["rank"];
-  }>({});
+  const [rankings, setRankings] = useState<Record<string, Review["rank"]>>({});
   // ------------------------------------
 
   const [isLoading, setIsLoading] = useState(false);
 
-  // --- [UPDATED] State for Comments ---
+  // ---  State for Comments ---
   // `comments` holds the saved comments
-  const [comments, setComments] = useState<{ [teamId: string]: string }>({});
+  const [comments, setComments] = useState<Record<string, string>>({});
   // `editingCommentText` holds text being actively edited
-  const [editingCommentText, setEditingCommentText] = useState<{
-    [teamId: string]: string | undefined;
-  }>({});
+  const [editingCommentText, setEditingCommentText] = useState<
+    Record<string, string | undefined>
+  >({});
   // `openCommentBoxIds` tracks which editors are open
   const [openCommentBoxIds, setOpenCommentBoxIds] = useState<string[]>([]);
   // ------------------------------------
@@ -127,10 +125,10 @@ const ScoreEntryForm = ({
     });
   };
 
-  // --- [UPDATED] Comment Handlers ---
+  // --- Comment Handlers ---
   const openCommentEditor = (teamId: string) => {
     // Copy saved comment to editing state
-    setEditingCommentText((p) => ({ ...p, [teamId]: comments[teamId] || "" }));
+    setEditingCommentText((p) => ({ ...p, [teamId]: comments[teamId] ?? "" }));
     // Show editor
     setOpenCommentBoxIds((prevIds) => [...prevIds, teamId]);
   };
@@ -144,7 +142,7 @@ const ScoreEntryForm = ({
 
   const saveComment = (teamId: string) => {
     // Copy editing state to saved state
-    setComments((p) => ({ ...p, [teamId]: editingCommentText[teamId] || "" }));
+    setComments((p) => ({ ...p, [teamId]: editingCommentText[teamId] ?? "" }));
     // Hide editor
     setOpenCommentBoxIds((prevIds) => prevIds.filter((id) => id !== teamId));
     // Clear editing state
@@ -163,7 +161,7 @@ const ScoreEntryForm = ({
     const batch = writeBatch(db);
     // 3. Define the correct base path
     const basePath = `users/${user.uid}/events/${currentEvent.id}`;
-    const scores: { [key in Review["rank"]]: number } = {
+    const scores: Record<Review["rank"], number> = {
       0: 0,
       1: 3,
       2: 2,
@@ -176,7 +174,7 @@ const ScoreEntryForm = ({
         judgeId: assignment.judgeId,
         score: scores[rank],
         rank,
-        comments: comments[team.id] || "", // [FEATURE 3] Add comment
+        comments: comments[team.id] ?? "",
       };
       const newReviewedBy = [...team.reviewedBy, newReview];
       const newTotalScore = team.totalScore + scores[rank];
@@ -246,14 +244,15 @@ const ScoreEntryForm = ({
   // ------------------------------------------------
 
   // --- Styling and Content for Rank Buttons ---
-  const rankInfo: {
-    [key in Review["rank"]]: {
+  const rankInfo: Record<
+    Review["rank"],
+    {
       label: string;
       icon: React.ReactNode;
       selected: string;
       base: string;
-    };
-  } = {
+    }
+  > = {
     1: {
       label: "1st",
       icon: <Trophy className="size-4" />,
@@ -309,7 +308,7 @@ const ScoreEntryForm = ({
             const isCommentOpen = openCommentBoxIds.includes(team.id);
             // Check saved comments, not editing text
             const hasComment =
-              comments[team.id] && comments[team.id].length > 0;
+              comments[team.id] && comments[team.id]?.length > 0;
 
             return (
               <div
@@ -363,11 +362,7 @@ const ScoreEntryForm = ({
                       autoFocus
                     />
                     <div className="flex justify-end gap-2">
-                      <Button
-                        onClick={() => cancelComment(team.id)}
-                        variant="secondary"
-                        size="sm"
-                      >
+                      <Button onClick={() => cancelComment(team.id)} size="sm">
                         <XCircle className="mr-1.5 size-4" />
                         Cancel
                       </Button>
@@ -384,7 +379,6 @@ const ScoreEntryForm = ({
                 ) : (
                   <Button
                     onClick={() => openCommentEditor(team.id)}
-                    variant="ghost"
                     size="sm"
                     className="self-start text-zinc-400 hover:text-white"
                   >
@@ -397,11 +391,10 @@ const ScoreEntryForm = ({
           })}
         </div>
 
-        {/* --- [UPDATED] Footer with Delete Button --- */}
+        {/* --- Footer with Delete Button --- */}
         <div className="mt-6 flex flex-col items-center gap-4 border-t border-zinc-700 pt-6 sm:flex-row sm:justify-between">
           <Button
             onClick={() => setIsConfirmOpen(true)}
-            variant="destructive"
             className="w-full sm:w-auto"
             disabled={isLoading || isDeleting}
           >
@@ -436,8 +429,8 @@ const ScoreEntryForm = ({
           <strong>{judge?.name}</strong>?
         </p>
         <p className="mt-2 text-sm text-zinc-400">
-          No scores will be saved, and the judge will be marked as "Assignable"
-          again. This action cannot be undone.
+          No scores will be saved, and the judge will be marked as{" "}
+          {`"Assignable"`} again. This action cannot be undone.
         </p>
       </ConfirmationDialog>
     </>

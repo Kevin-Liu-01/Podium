@@ -12,7 +12,6 @@ import {
   Trash2,
   Users,
   Building2,
-  Lock,
   Sparkles,
   Clock,
   History,
@@ -92,7 +91,7 @@ const AdminPanel = () => {
     });
   }, [judges, floors]);
 
-  // --- [FIXED] Updated path to include user.uid ---
+  // --- Updated path to include user.uid ---
   const getCollectionPath = (col: string) => {
     if (!user || !currentEvent) {
       throw new Error("User or event not loaded");
@@ -293,8 +292,8 @@ const AdminPanel = () => {
       console.error("Failed to update judge floor:", error);
       // Revert state on failure
       setJudgeItems((prev) => {
-        const activeItems = prev[overContainer] || [];
-        const overItems = prev[activeContainer] || [];
+        const activeItems = prev[overContainer] ?? [];
+        const overItems = prev[activeContainer] ?? [];
         const draggedJudge = activeItems.find((j) => j.id === activeId);
 
         if (!draggedJudge) return prev;
@@ -314,7 +313,7 @@ const AdminPanel = () => {
     }
     // ID is an item, find its container
     return Object.keys(judgeItems).find((key) =>
-      judgeItems[key].some((item) => item.id === id),
+      judgeItems[key]?.some((item) => item.id === id),
     );
   };
 
@@ -336,16 +335,16 @@ const AdminPanel = () => {
         if (!judge.currentAssignmentId) {
           const targetFloor = sortedFloors[index % sortedFloors.length];
           const judgeRef = doc(db, getCollectionPath("judges"), judge.id);
-          batch.update(judgeRef, { floorId: targetFloor.id });
+          batch.update(judgeRef, { floorId: targetFloor?.id });
 
           // Optimistic update
-          newJudgeItems[targetFloor.id] = [
-            ...(newJudgeItems[targetFloor.id] || []),
+          newJudgeItems[targetFloor?.id ?? ""] = [
+            ...(newJudgeItems[targetFloor?.id ?? ""] ?? []),
             judge,
           ];
         } else {
           // Keep them in the unassigned list
-          newJudgeItems.unassigned.push(judge);
+          newJudgeItems?.unassigned?.push(judge);
         }
       });
 
@@ -632,8 +631,8 @@ const AdminPanel = () => {
                     <DroppableZone
                       key={floor.id}
                       id={floor.id}
-                      title={`${floor.name} (${(judgeItems[floor.id] || []).length})`}
-                      items={judgeItems[floor.id] || []}
+                      title={`${floor.name} (${(judgeItems[floor.id] ?? []).length})`}
+                      items={judgeItems[floor.id] ?? []}
                       onDeleteJudge={handleDeleteJudge}
                     />
                   ))}

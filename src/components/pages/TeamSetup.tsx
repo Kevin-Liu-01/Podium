@@ -441,12 +441,12 @@ const TeamSetup = () => {
           (a, b) => b.teamNumberEnd - a.teamNumberEnd,
         )[0];
         // Only extend if the new number is greater than the current max
-        if (number > lastFloor.teamNumberEnd) {
+        if (number > lastFloor?.teamNumberEnd) {
           targetFloor = lastFloor;
-          const floorRef = doc(db, `${basePath}/floors`, lastFloor.id);
+          const floorRef = doc(db, `${basePath}/floors`, lastFloor?.id ?? "");
           await updateDoc(floorRef, { teamNumberEnd: number });
           showToast(
-            `Extended ${lastFloor.name} range to include Team ${number}.`,
+            `Extended ${lastFloor?.name} range to include Team ${number}.`,
             "info",
           );
         }
@@ -865,7 +865,7 @@ const TeamSetup = () => {
               </Card>
             )}
             {floors.length > 0 && teams.length === 0 && (
-              <Card className="flex h-[calc(1s00%-4rem)] flex-col items-center justify-center gap-4 text-center">
+              <Card className="flex h-[calc(100%-4rem)] flex-col items-center justify-center gap-4 text-center">
                 <Users2 className="size-16 text-zinc-700" />
                 <p className="font-semibold text-zinc-400">No Teams Added</p>
                 <p className="text-zinc-500 italic">

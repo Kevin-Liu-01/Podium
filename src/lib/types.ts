@@ -1,6 +1,6 @@
 import type { Timestamp } from "firebase/firestore";
 import type { User } from "firebase/auth";
-import React from "react"; // Import React for SetStateAction
+import type React from "react"; // Import React for SetStateAction
 
 // Core Data Structures
 // ====================
@@ -15,6 +15,7 @@ export interface Judge {
 }
 
 export interface Team {
+  isPaused: boolean;
   id: string;
   name: string;
   number: number;
@@ -42,6 +43,7 @@ export interface Floor {
 
 // Represents a single review/score given by a judge
 export interface Review {
+  comments: boolean;
   judgeId: string;
   score: number;
   rank: 1 | 2 | 3 | 0; // 0 represents 'Unranked'
