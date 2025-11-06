@@ -3,8 +3,8 @@ import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { doc, updateDoc, writeBatch } from "firebase/firestore";
 import { useAppContext } from "../../context/AppContext";
-import type { Floor, Judge, Team, Assignment, Review } from "../../lib/types";
-import { getColorForJudge } from "../../lib/utils";
+import type { Floor, Judge, Team, Assignment } from "../../lib/types";
+// import { getColorForJudge } from "../../lib/utils";
 import { staggerContainer, fadeInUp } from "../../lib/animations";
 import MotionCard from "../ui/MotionCard";
 import TeamCard from "../shared/TeamCard";
@@ -15,19 +15,16 @@ import {
   PlusIcon,
   SlidersHorizontal,
   User,
-  Users,
-  Play,
-  Pause,
-  Search, // [NEW] Import
-  Clock, // [NEW] Import
-  CheckCircle2, // [NEW] Import
-  XCircle, // [NEW] Import
+  Search,
+  Clock,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { db } from "../../firebase/config";
 import Tooltip from "../ui/Tooltip";
 import JudgeDetailsModal from "../shared/JudgeDetailsModal";
 import { CustomDropdown } from "../ui/CustomDropdown";
-import { Input } from "../ui/Input"; // [NEW] Import
+import { Input } from "../ui/Input";
 
 const TEAM_SORT_OPTIONS = [
   { value: "number", label: "Sort by Team #" },
@@ -41,7 +38,7 @@ const TEAM_FILTER_OPTIONS = [
   { value: "unassigned", label: "Filter: Unassigned" },
 ];
 
-// --- [NEW] Sort options for Judges ---
+// --- Sort options for Judges ---
 const JUDGE_SORT_OPTIONS = [
   { value: "name", label: "Sort by Name (A-Z)" },
   { value: "most-completed", label: "Sort by Most Completed" },
@@ -49,17 +46,17 @@ const JUDGE_SORT_OPTIONS = [
 ];
 // ---
 
-// --- [UPDATED] Judge List Item Component ---
+// --- Judge List Item Component ---
 const JudgeListItem = ({
   judge,
   status,
-  currentTeams, // <-- [NEW] Added prop
+  currentTeams, // Added prop
   onViewDetails,
   onEnterScores,
 }: {
   judge: Judge;
   status: "busy" | "assignable" | "finished";
-  currentTeams: Team[]; // <-- [NEW] Added prop
+  currentTeams: Team[]; // Added prop
   onViewDetails: () => void;
   onEnterScores: () => void;
 }) => {
@@ -636,7 +633,7 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
                   total active teams on this floor.
                 </p>
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="flex flex-col gap-2 p-1 sm:flex-row">
                 <CustomDropdown
                   value={teamFilter}
                   onChange={(val) => setTeamFilter(val as TeamFilter)}

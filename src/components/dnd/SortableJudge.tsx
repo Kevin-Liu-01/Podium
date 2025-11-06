@@ -1,7 +1,7 @@
 import React from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Lock, Trash2, Clock, History, User } from "lucide-react";
+import { GripVertical, Trash2, Clock, History, User } from "lucide-react";
 import type { Judge } from "../../lib/types";
 import Tooltip from "../ui/Tooltip";
 
@@ -26,46 +26,48 @@ const SortableJudge = React.memo(({ judge, onDelete }: SortableJudgeProps) => {
     opacity: isDragging ? 0.5 : 1,
   };
 
+  // ---  Updated Logic ---
   const isBusy = !!judge.currentAssignmentId;
   const hasHistory = judge.completedAssignments > 0;
-  const isLocked = isBusy || hasHistory;
+  // A judge is only "locked" from dragging if they are busy
+  const isDragLocked = isBusy;
+  // A judge is only "deletable" if they are not busy AND have no history
+  const isDeletable = !isBusy && !hasHistory;
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...attributes}
-      className={`flex touch-none items-center justify-between rounded-md px-2.5 py-2 text-sm shadow-md ${
-        isLocked
-          ? "cursor-not-allowed bg-zinc-800 ring-1 ring-zinc-700"
-          : "bg-zinc-800 ring-1 ring-zinc-700"
-      } ${isDragging ? "shadow-lg ring-2 ring-orange-500" : ""}`}
+      className={`flex touch-none items-center justify-between rounded-md bg-zinc-800 px-2.5 py-2 text-sm shadow-md ring-1 ring-zinc-700 ${
+        isDragging ? "shadow-lg ring-2 ring-orange-500" : ""
+      }`}
     >
       <div className="flex min-w-0 items-center gap-2">
-        {/* --- Status Icon --- */}
+        {/* ---  Status Icon & Tooltip --- */}
         <Tooltip
           content={
             isBusy
-              ? "This judge is currently busy with an assignment."
+              ? "Busy (Active Assignment)"
               : hasHistory
-                ? "This judge has completed assignments and is locked."
-                : "This judge is free."
+                ? "Movable (has history)"
+                : "Movable"
           }
           position="right"
         >
           {isBusy ? (
             <Clock className="size-4 flex-shrink-0 text-amber-400" />
           ) : hasHistory ? (
-            <Lock className="size-4 flex-shrink-0 text-zinc-500" />
+            <History className="size-4 flex-shrink-0 text-emerald-400" />
           ) : (
-            <User className="size-4 flex-shrink-0 text-zinc-500" />
+            <User className="size-4 flex-shrink-0 text-emerald-400" />
           )}
         </Tooltip>
 
         {/* --- Name --- */}
         <span
           className={`truncate font-semibold ${
-            isLocked ? "text-zinc-500" : "text-zinc-100"
+            isBusy ? "text-zinc-500" : "text-zinc-100"
           }`}
           title={judge.name}
         >
@@ -85,8 +87,8 @@ const SortableJudge = React.memo(({ judge, onDelete }: SortableJudgeProps) => {
           </Tooltip>
         )}
 
-        {/* --- Delete Button --- */}
-        {!isLocked && (
+        {/* ---  Delete Button --- */}
+        {isDeletable && (
           <Tooltip content="Delete Judge" position="left">
             <button
               onClick={(e) => {
@@ -100,12 +102,12 @@ const SortableJudge = React.memo(({ judge, onDelete }: SortableJudgeProps) => {
           </Tooltip>
         )}
 
-        {/* --- Drag Handle --- */}
+        {/* ---  Drag Handle --- */}
         <button
           {...listeners}
-          disabled={isLocked}
+          disabled={isDragLocked}
           className={`p-1 ${
-            isLocked
+            isDragLocked
               ? "cursor-not-allowed text-zinc-600"
               : "cursor-grab text-zinc-500 active:cursor-grabbing"
           }`}

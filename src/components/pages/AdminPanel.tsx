@@ -238,13 +238,11 @@ const AdminPanel = () => {
     const judgeToMove = judges.find((j) => j.id === activeId);
     if (!judgeToMove) return;
 
-    // Check for lock
-    if (
-      judgeToMove.completedAssignments > 0 ||
-      judgeToMove.currentAssignmentId
-    ) {
+    // Check for lock: ONLY block moving if judge has an ACTIVE assignment.
+    // Completed assignments (history) no longer lock a judge from being moved.
+    if (judgeToMove.currentAssignmentId) {
       showToast(
-        `${judgeToMove.name} cannot be moved while they have assignments.`,
+        `${judgeToMove.name} cannot be moved while they have an active assignment.`,
         "warning",
       );
       return;
@@ -334,23 +332,37 @@ const AdminPanel = () => {
       newJudgeItems.unassigned = [];
 
       judgesToDistribute.forEach((judge, index) => {
-        const targetFloor = sortedFloors[index % sortedFloors.length];
-        const judgeRef = doc(db, getCollectionPath("judges"), judge.id);
-        batch.update(judgeRef, { floorId: targetFloor.id });
+        // Only distribute if they don't have an active assignment
+        if (!judge.currentAssignmentId) {
+          const targetFloor = sortedFloors[index % sortedFloors.length];
+          const judgeRef = doc(db, getCollectionPath("judges"), judge.id);
+          batch.update(judgeRef, { floorId: targetFloor.id });
 
-        // Optimistic update
-        newJudgeItems[targetFloor.id] = [
-          ...(newJudgeItems[targetFloor.id] || []),
-          judge,
-        ];
+          // Optimistic update
+          newJudgeItems[targetFloor.id] = [
+            ...(newJudgeItems[targetFloor.id] || []),
+            judge,
+          ];
+        } else {
+          // Keep them in the unassigned list
+          newJudgeItems.unassigned.push(judge);
+        }
       });
 
       setJudgeItems(newJudgeItems); // Set new state
       await batch.commit(); // Commit to DB
       showToast(
-        `${judgesToDistribute.length} judges distributed successfully!`,
+        `${
+          judgesToDistribute.length - newJudgeItems.unassigned.length
+        } judges distributed successfully!`,
         "success",
       );
+      if (newJudgeItems.unassigned.length > 0) {
+        showToast(
+          `${newJudgeItems.unassigned.length} judges left unassigned (active assignment).`,
+          "info",
+        );
+      }
     } catch (error) {
       showToast("Failed to auto-distribute judges.", "error");
       console.error("Auto-distribution error:", error);
@@ -500,6 +512,7 @@ const AdminPanel = () => {
                     .map((judge) => {
                       const isBusy = !!judge.currentAssignmentId;
                       const hasHistory = judge.completedAssignments > 0;
+                      // [FIX] 'isLocked' for deletion check remains the same
                       const isLocked = isBusy || hasHistory;
                       const floorName = judge.floorId
                         ? floorMap.get(judge.floorId)
@@ -507,15 +520,15 @@ const AdminPanel = () => {
 
                       let StatusIcon, statusColor, statusTooltip;
                       if (isBusy) {
-                        StatusIcon = Clock;
+                        StatusIcon = Clock; // Active assignment
                         statusColor = "text-amber-400";
-                        statusTooltip = "Busy";
+                        statusTooltip = "Busy (Active Assignment)";
                       } else if (hasHistory) {
-                        StatusIcon = Lock;
-                        statusColor = "text-zinc-500";
-                        statusTooltip = "Locked (has history)";
+                        StatusIcon = History; // Completed assignments, but not busy
+                        statusColor = "text-emerald-400"; // Available (green)
+                        statusTooltip = "Available (has history)";
                       } else {
-                        StatusIcon = User;
+                        StatusIcon = User; // No active, no completed
                         statusColor = "text-emerald-400";
                         statusTooltip = "Available";
                       }
@@ -555,6 +568,7 @@ const AdminPanel = () => {
                                 </div>
                               </Tooltip>
                             )}
+                            {/* Deletion logic remains locked if judge has history */}
                             {!isLocked && (
                               <Tooltip content="Delete Judge" position="left">
                                 <button

@@ -41,7 +41,7 @@ export const CustomDropdown = ({
         onClick={() => setIsOpen(!isOpen)}
         className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-left text-sm text-zinc-200 shadow-inner shadow-black/40 transition-colors outline-none focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/50"
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 text-nowrap">
           {icon}
           {selectedOption ? selectedOption.label : placeholder}
         </div>
@@ -67,9 +67,7 @@ export const CustomDropdown = ({
                   }}
                   className="block w-full rounded-lg px-3 py-1.5 text-left text-sm text-zinc-200 transition-colors hover:bg-orange-600 hover:text-white"
                 >
-                  <span className="truncate whitespace-nowrap">
-                    {option.label}
-                  </span>
+                  {option.label}
                 </button>
               ))
             ) : (
