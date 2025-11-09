@@ -399,6 +399,24 @@ const AssignmentDashboard = () => {
     }
   };
 
+  // --- Fisher-Yates Shuffle Function ---
+  const shuffleArray = (array: any[]) => {
+    let currentIndex = array.length,
+      randomIndex;
+    // While there remain elements to shuffle.
+    while (currentIndex !== 0) {
+      // Pick a remaining element.
+      randomIndex = Math.floor(Math.random() * currentIndex);
+      currentIndex--;
+      // And swap it with the current element.
+      [array[currentIndex], array[randomIndex]] = [
+        array[randomIndex],
+        array[currentIndex],
+      ];
+    }
+    return array;
+  };
+
   const generateAssignments = async () => {
     if (!currentEvent || !user) return;
     if (autoSelectedJudgeIds.length === 0)
@@ -410,9 +428,13 @@ const AssignmentDashboard = () => {
 
       const globallyLockedTeamIds = new Set<string>();
 
-      const selectedJudgesList = autoSelectedJudgeIds
-        .map((id) => judges.find((j) => j.id === id))
-        .filter((j): j is Judge => !!j);
+      // --- [MODIFIED] Shuffle the selected judges list ---
+      const selectedJudgesList = shuffleArray(
+        autoSelectedJudgeIds
+          .map((id) => judges.find((j) => j.id === id))
+          .filter((j): j is Judge => !!j),
+      );
+      // --- [END MODIFICATION] ---
 
       // --- Overlap Logic ---
       const availablePool = allTeamsOnFloor.filter(
@@ -793,6 +815,7 @@ const AssignmentDashboard = () => {
                                 : "";
 
                             return (
+                              // --- [MODIFIED] ---
                               <label
                                 key={j.id}
                                 className="flex h-min cursor-pointer items-start space-x-3 rounded-lg p-2 transition-colors hover:bg-zinc-700"
@@ -837,6 +860,7 @@ const AssignmentDashboard = () => {
                                   )}
                                 </div>
                               </label>
+                              // --- [END MODIFICATION] ---
                             );
                           })
                         ) : (
