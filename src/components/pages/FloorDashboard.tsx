@@ -40,25 +40,26 @@ const TEAM_FILTER_OPTIONS = [
   { value: "unassigned", label: "Filter: Unassigned" },
 ];
 
-// --- Sort options for Judges ---
 const JUDGE_SORT_OPTIONS = [
   { value: "name", label: "Sort by Name (A-Z)" },
   { value: "most-completed", label: "Sort by Most Completed" },
   { value: "least-completed", label: "Sort by Fewest Completed" },
 ];
-// ---
 
-// --- Judge List Item Component ---
 const JudgeListItem = ({
   judge,
   status,
-  currentTeams, // Added prop
+  currentTeams,
+  completedTeamsCount,
+  totalTeamsOnFloor,
   onViewDetails,
   onEnterScores,
 }: {
   judge: Judge;
   status: "busy" | "assignable" | "finished";
-  currentTeams: Team[]; // Added prop
+  currentTeams: Team[];
+  completedTeamsCount: number;
+  totalTeamsOnFloor: number;
   onViewDetails: () => void;
   onEnterScores: () => void;
 }) => {
@@ -98,7 +99,10 @@ const JudgeListItem = ({
               <Icon className="size-3" /> {label}
             </div>
             <span className="rounded-full bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-300">
-              Completed: {judge.completedAssignments ?? 0}
+              Saw {completedTeamsCount} / {totalTeamsOnFloor}
+            </span>
+            <span className="rounded-full bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-300">
+              Assigned {judge.completedAssignments ?? 0}x
             </span>
           </div>
         </div>
@@ -119,7 +123,7 @@ const JudgeListItem = ({
             {currentTeams.map((team) => (
               <span
                 key={team.id}
-                className="max-w-[200px] truncate rounded-full bg-zinc-600 px-2 py-0.5 text-xs text-white"
+                className="max-w-[200px] truncate rounded-full bg-zinc-600 px-2 py-0.5 text-[0.65rem] text-white"
                 title={team.name}
               >
                 #{team.number} {team.name}
@@ -154,7 +158,7 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
   const [assignmentToScore, setAssignmentToScore] = useState<Assignment | null>(
     null,
   );
-  const [viewingJudge, setViewingJudge] = useState<Judge | null>(null); // Loading states for modal actions
+  const [viewingJudge, setViewingJudge] = useState<Judge | null>(null);
 
   const [isHandlingSwitchFloor, setIsHandlingSwitchFloor] = useState(false);
   const [isHandlingRemoveAssignment, setIsHandlingRemoveAssignment] =
@@ -192,6 +196,16 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
     return map;
   }, [assignments]); // --- Judge Status Logic (Adapted from AssignmentDashboard) ---
 
+  // --- Extracted teamsOnFloor to its own memo ---
+  const teamsOnFloor = useMemo(
+    () =>
+      teams
+        .filter((t) => t.floorId === floor.id && !t.isPaused)
+        .sort((a, b) => a.number - b.number),
+    [teams, floor.id],
+  );
+  // ---
+
   const judgeDetailsMap = useMemo(() => {
     const details = new Map<
       string,
@@ -205,9 +219,6 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
 
     const allSubmitted = assignments.filter((a) => a.submitted);
     const allCurrent = assignments.filter((a) => !a.submitted);
-    const teamsOnFloor = teams
-      .filter((t) => t.floorId === floor.id && !t.isPaused)
-      .sort((a, b) => a.number - b.number);
 
     for (const judge of judges) {
       if (judge.floorId !== floor.id) continue;
@@ -246,7 +257,7 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
       });
     }
     return details;
-  }, [judges, teams, assignments, floor.id, teamMap]);
+  }, [judges, teams, assignments, floor.id, teamMap, teamsOnFloor]); // Added teamsOnFloor dependency
 
   const judgesOnFloor = useMemo(
     () => judges.filter((j) => j.floorId === floor.id),
@@ -465,7 +476,7 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
   }) => (
     <button
       onClick={() => setStatusFilter(value)}
-      className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+      className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors ${
         statusFilter === value
           ? "bg-orange-600 text-white"
           : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
@@ -493,12 +504,14 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
   }
 
   return (
-    <div>
+    <div className="w-full overflow-hidden md:overflow-visible">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* --- LEFT COLUMN: JUDGE CONTROL PANEL --- */}
         <div className="lg:col-span-1">
-          <MotionCard className="lg:sticky lg:top-28">
-            <div className="flex flex-col">
+          <MotionCard className="lg:sticky lg:top-28 lg:h-[calc(100vh-8.5rem)]">
+            <div className="flex h-full flex-col">
+              {" "}
+              {/* Added h-full */}
               <h2 className="mb-4 text-xl font-bold">{floor.name} Dashboard</h2>
               {/* Search */}
               <div className="relative mb-3">
@@ -511,7 +524,6 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
                   className="pl-10"
                 />
               </div>
-
               {/* --- Sort Dropdown --- */}
               <div className="mb-3">
                 <CustomDropdown
@@ -522,7 +534,6 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
                 />
               </div>
               {/* --- */}
-
               {/* Filters */}
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 <StatusFilterButton
@@ -559,9 +570,10 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
                 />
               </div>
               {/* Judge List */}
+              {/* --- MODIFIED: Removed max-h, added flex-1 and min-h-0 --- */}
               <motion.div
                 layout
-                className="custom-scrollbar -mr-2 max-h-[calc(100vh-20rem)] space-y-2 overflow-y-auto pr-2"
+                className="custom-scrollbar -mr-2 min-h-0 flex-1 space-y-2 overflow-y-auto pr-2"
               >
                 <AnimatePresence>
                   {filteredJudges.length > 0 ? (
@@ -574,6 +586,10 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
                           judge={judge}
                           status={details.status}
                           currentTeams={details.currentTeams}
+                          // --- MODIFIED ---
+                          completedTeamsCount={details.completedTeams.length}
+                          totalTeamsOnFloor={teamsOnFloor.length}
+                          // --- END MODIFICATION ---
                           onViewDetails={() => setViewingJudge(judge)}
                           onEnterScores={() => {
                             const assignment = assignmentMap.get(
@@ -607,11 +623,9 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
                   Active Teams ({visibleFloorTeams.length})
                 </h2>
                 <p className="text-sm text-zinc-400">
-                  {
-                    teams.filter((t) => t.floorId === floor.id && !t.isPaused)
-                      .length
-                  }{" "}
-                  total active teams on this floor.
+                  {/* --- MODIFIED --- */}
+                  {teamsOnFloor.length} total active teams on this floor.
+                  {/* --- END MODIFICATION --- */}
                 </p>
               </div>
               <div className="flex flex-col gap-2 p-1 sm:flex-row">

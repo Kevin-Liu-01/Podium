@@ -11,18 +11,19 @@ import {
   LayoutGrid,
   Minus,
   MessageSquare,
+  Loader,
 } from "lucide-react";
 import { useAppContext } from "../../context/AppContext";
+import { useExport } from "../../hooks/useExport";
 import type { Team, Floor, Judge, Assignment } from "../../lib/types";
-import { staggerContainer, fadeInUp } from "../../lib/animations"; // Make sure path is correct
-import { Card } from "../ui/Card"; // Make sure paths are correct
+import { staggerContainer, fadeInUp } from "../../lib/animations";
+import { Card } from "../ui/Card";
 import { CustomDropdown } from "../ui/CustomDropdown";
 import { Input } from "../ui/Input";
-import ScoreDetailModal from "../shared/ScoreDetailModal"; // Make sure path is correct
-import MotionCard from "../ui/MotionCard"; // Make sure path is correct
+import ScoreDetailModal from "../shared/ScoreDetailModal";
+import MotionCard from "../ui/MotionCard";
 import { Button } from "../ui/Button";
 
-// --- HELPER TYPES & CONSTANTS ---
 type SortKey = "averageScore" | "number" | "highScore" | "lowScore";
 type ViewMode = "leaderboard" | "matrix";
 
@@ -33,7 +34,6 @@ const SORT_OPTIONS = [
   { value: "number", label: "Sort by Team Number" },
 ];
 
-// --- Review Matrix Component (Unchanged) ---
 const ReviewMatrix = ({
   teams,
   judges,
@@ -139,7 +139,7 @@ const ReviewMatrix = ({
   );
 };
 
-// --- Skeleton Components (Unchanged) ---
+// --- Skeleton Components ---
 const SkeletonRow = () => (
   <div className="flex items-center space-x-4 px-4 py-4">
     <div className="h-5 w-20 rounded-md bg-zinc-800"></div>
@@ -172,11 +172,11 @@ const LeaderboardSkeleton = () => (
     </div>
   </div>
 );
-// --- End Skeleton Components ---
 
-// --- Main Results View (Updated) ---
+// --- Main Results View ---
 const ResultsView = () => {
   const { teams, floors, judges, assignments } = useAppContext();
+  const { isExporting, exportLeaderboard, exportMatrix } = useExport();
   const [sortBy, setSortBy] = useState<SortKey>("averageScore");
   const [floorFilter, setFloorFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -209,7 +209,6 @@ const ResultsView = () => {
   }, [teams]);
 
   const filteredAndSortedTeams = useMemo(() => {
-    // ... filtering and sorting logic remains the same ...
     const validTeams = Array.isArray(teams) ? teams : [];
     let processedTeams = validTeams;
 
@@ -284,124 +283,6 @@ const ResultsView = () => {
     }
   };
 
-  // --- CSV Export Functions ---
-  const handleExportLeaderboardCSV = () => {
-    const headers = [
-      "Rank",
-      "Team Name",
-      "Team #",
-      "Floor",
-      "Reviews",
-      "Comment Count", // [MODIFIED] Renamed for clarity
-      "All Comments", // [MODIFIED] This column will now contain full comments
-      "High Score",
-      "Low Score",
-      "Average Score",
-    ];
-    let csvContent = headers.join(",") + "\n";
-
-    for (const team of filteredAndSortedTeams) {
-      const rank = rankMap.get(team.id);
-      const rankDisplay = typeof rank !== "undefined" ? rank + 1 : "N/A";
-      const floorName = floorMap.get(team.floorId)?.name || "N/A";
-      const scores = team.reviewedBy?.map((r) => r.score) || [];
-      const high = scores.length ? Math.max(...scores).toFixed(2) : "N/A";
-      const low = scores.length ? Math.min(...scores).toFixed(2) : "N/A";
-      const avg = (team.averageScore ?? 0).toFixed(2);
-      const reviews = team.reviewedBy?.length ?? 0;
-      const commentCount = (team.reviewedBy || []).filter(
-        (r) => r.comments && r.comments.trim() !== "",
-      ).length;
-
-      // Get full comments with judge names for CSV
-      const allCommentsString = (team.reviewedBy || [])
-        .filter((r) => r.comments && r.comments.trim() !== "")
-        .map((r) => {
-          const judgeName = judgeMap.get(r.judgeId)?.name || "Unknown";
-          // Format as [Judge]: [Comment]
-          // Escape any quotes inside the comment text itself
-          const commentText = r.comments.replace(/"/g, '""');
-          return `[${judgeName}]: ${commentText}`;
-        })
-        .join("\n"); // Join multiple comments with a newline (Excel/Sheets handles this well)
-
-      // Escape the final aggregated string by wrapping it in quotes
-      const allCommentsEscaped = `"${allCommentsString}"`;
-
-      // Escape commas in team name
-      const teamNameEscaped = `"${team.name.replace(/"/g, '""')}"`;
-
-      const row = [
-        rankDisplay,
-        teamNameEscaped,
-        team.number,
-        floorName,
-        reviews,
-        commentCount,
-        allCommentsEscaped,
-        high,
-        low,
-        avg,
-      ];
-      csvContent += row.join(",") + "\n";
-    }
-
-    triggerCSVDownload(csvContent, "leaderboard_results.csv");
-  };
-
-  const handleExportMatrixCSV = () => {
-    const sortedTeamsForMatrix = [...teams].sort((a, b) => a.number - b.number);
-    const sortedJudgesForMatrix = [...judges].sort((a, b) =>
-      a.name.localeCompare(b.name),
-    );
-    const reviewMap = new Map<string, Set<string>>();
-
-    for (const team of sortedTeamsForMatrix) {
-      reviewMap.set(team.id, new Set());
-    }
-    const submittedAssignments = assignments.filter((a) => a.submitted);
-    for (const assignment of submittedAssignments) {
-      const judgeId = assignment.judgeId;
-      for (const teamId of assignment.teamIds) {
-        if (reviewMap.has(teamId)) {
-          reviewMap.get(teamId)!.add(judgeId);
-        }
-      }
-    }
-
-    const headers = [
-      "Team #",
-      "Team Name",
-      ...sortedJudgesForMatrix.map((j) => j.name),
-    ];
-    let csvContent = headers.join(",") + "\n";
-
-    for (const team of sortedTeamsForMatrix) {
-      const row = [team.number, `"${team.name.replace(/"/g, '""')}"`];
-      const reviewedBy = reviewMap.get(team.id) || new Set();
-      for (const judge of sortedJudgesForMatrix) {
-        row.push(reviewedBy.has(judge.id) ? "1" : "0");
-      }
-      csvContent += row.join(",") + "\n";
-    }
-
-    triggerCSVDownload(csvContent, "review_matrix.csv");
-  };
-
-  const triggerCSVDownload = (csvContent: string, filename: string) => {
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", filename);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-  // --- End CSV Export Functions ---
-
-  // Empty State (Unchanged)
   if (!teams || teams.length === 0) {
     return (
       <>
@@ -424,8 +305,6 @@ const ResultsView = () => {
     );
   }
 
-  // --- JSX Return (Unchanged) ---
-  // The UI table display is not modified, only the export function.
   return (
     <div className="space-y-6">
       <MotionCard className="z-20">
@@ -480,18 +359,30 @@ const ResultsView = () => {
             placeholder="Sort by..."
           />
         </div>
-        {/* Dynamic Download Button */}
         <Button
           onClick={
             viewMode === "leaderboard"
-              ? handleExportLeaderboardCSV
-              : handleExportMatrixCSV
+              ? () =>
+                  void exportLeaderboard(
+                    filteredAndSortedTeams,
+                    "leaderboard_results.csv",
+                  )
+              : () => void exportMatrix("review_matrix.csv")
           }
-          className="absolute right-4 bottom-4.5 ml-auto w-full flex-shrink-0 bg-gradient-to-br from-blue-600 to-blue-700 py-2 text-sm transition-all duration-150 hover:from-blue-700 hover:to-blue-800 md:w-auto"
-          size="sm" // Match size with toggle buttons
+          disabled={isExporting}
+          className="right-4 bottom-4.5 mt-4 ml-auto w-auto flex-shrink-0 bg-gradient-to-br from-blue-600 to-blue-700 py-2 text-sm transition-all duration-150 hover:from-blue-700 hover:to-blue-800 md:absolute md:mt-0"
+          size="sm"
         >
-          <FileDown className="size-4" />
-          {viewMode === "leaderboard" ? "Leaderboard CSV" : "Matrix CSV"}
+          {isExporting ? (
+            <Loader className="mr-2 size-4 animate-spin" />
+          ) : (
+            <FileDown className="mr-2 size-4" />
+          )}
+          {isExporting
+            ? "Exporting..."
+            : viewMode === "leaderboard"
+              ? "Leaderboard CSV"
+              : "Matrix CSV"}
         </Button>
       </MotionCard>
 
@@ -520,7 +411,6 @@ const ResultsView = () => {
                   <th className="px-4 py-3 text-center text-xs font-semibold tracking-wider text-zinc-400 uppercase">
                     Comments
                   </th>
-                  {/* This column still just shows names in the UI */}
                   <th className="px-4 py-3 text-left text-xs font-semibold tracking-wider text-zinc-400 uppercase">
                     Judges w/ Comments
                   </th>
@@ -550,7 +440,6 @@ const ResultsView = () => {
                     (r) => r.comments && r.comments.trim() !== "",
                   ).length;
 
-                  // This logic for the UI remains unchanged
                   const judgesWithComments = (team.reviewedBy || [])
                     .filter((r) => r.comments && r.comments.trim() !== "")
                     .map((r) => judgeMap.get(r.judgeId)?.name || "Unknown")
@@ -591,7 +480,6 @@ const ResultsView = () => {
                           "0"
                         )}
                       </td>
-                      {/* This UI cell still just shows the names */}
                       <td className="px-4 py-3 text-left text-sm text-zinc-400">
                         {judgesWithComments || (
                           <span className="text-zinc-600">N/A</span>

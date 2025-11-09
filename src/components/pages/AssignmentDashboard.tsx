@@ -803,9 +803,12 @@ const AssignmentDashboard = () => {
                                   onChange={() => handleToggleJudge(j.id)}
                                   className="mt-1 size-4 flex-shrink-0 cursor-pointer rounded border-zinc-600 bg-zinc-900 text-orange-600 focus:ring-2 focus:ring-orange-500/50"
                                 />
-                                <div className="flex-grow">
-                                  <span className="text-sm font-medium">
+                                <div className="relative w-full flex-grow">
+                                  <span className="w-full text-sm font-medium">
                                     {j.name}
+                                    <span className="absolute right-0 mt-0.5 rounded-md bg-zinc-600 p-0.5 px-2 text-xs font-medium text-zinc-300">
+                                      Assigned {j.completedAssignments ?? 0}x
+                                    </span>
                                   </span>
                                   {/* --- Stats Display --- */}
                                   <div className="text-xs text-zinc-400">
@@ -814,6 +817,7 @@ const AssignmentDashboard = () => {
                                     </span>{" "}
                                     teams evaluated
                                   </div>
+
                                   {teamNumbersText && (
                                     <Tooltip
                                       content={

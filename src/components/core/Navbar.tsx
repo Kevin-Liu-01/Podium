@@ -13,14 +13,13 @@ import {
   Clock,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAppContext } from "../../context/AppContext"; // Adjust path if needed
-import { useExport } from "../../hooks/useExport"; // Adjust path if needed
-import type { Page } from "../../lib/types"; // Adjust path if needed
-import { CustomDropdown } from "../ui/CustomDropdown"; // Adjust path if needed
-import Tooltip from "../ui/Tooltip"; // Adjust path if needed
+import { useAppContext } from "../../context/AppContext";
+import { useExport } from "../../hooks/useExport";
+import type { Page } from "../../lib/types";
+import { CustomDropdown } from "../ui/CustomDropdown";
+import Tooltip from "../ui/Tooltip";
 import Image from "next/image";
 
-// A small hook to get formatted time, updating every second.
 const useClock = () => {
   const [time, setTime] = useState(new Date());
 
@@ -40,7 +39,7 @@ const useClock = () => {
 const Navbar = () => {
   const { page, setPage, floors, events, currentEvent, setCurrentEventId } =
     useAppContext();
-  const { exportToCSV, isExporting } = useExport();
+  const { isExporting, exportLeaderboard } = useExport(); // --- MODIFIED ---
   const [isScrolled, setIsScrolled] = useState(false);
   const currentTime = useClock();
 
@@ -54,9 +53,7 @@ const Navbar = () => {
 
   const handleDownload = async () => {
     if (currentEvent) {
-      // Assuming exportToCSV expects the Event object
-      // If it needs just the ID, change to exportToCSV(currentEvent.id)
-      await exportToCSV(currentEvent);
+      await exportLeaderboard();
     }
   };
 
@@ -80,7 +77,6 @@ const Navbar = () => {
               : "bg-white/5 text-zinc-300 shadow-inner shadow-white/10 hover:bg-white/10 hover:text-white"
           }`}
         >
-          {/* Ensure icon has explicit size */}
           <span className="size-4 flex-shrink-0">{icon}</span>
           <span className="hidden lg:block">{label}</span>
         </button>
@@ -108,7 +104,7 @@ const Navbar = () => {
       className={`fixed top-0 right-0 left-0 z-50 transition-all duration-500 ease-in-out ${
         isScrolled
           ? "mx-auto w-full max-w-full md:top-0"
-          : "mx-auto max-w-7xl px-4 md:top-4" // Added px-4 back for non-scrolled state
+          : "mx-auto max-w-7xl md:top-4 md:px-4"
       }`}
     >
       <div
@@ -120,14 +116,11 @@ const Navbar = () => {
       >
         {/* Background elements */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl">
-          {" "}
-          {/* Added pointer-events-none */}
           <div className="absolute inset-0 -z-10 h-full bg-zinc-900/80 transition-colors duration-300 group-hover:bg-zinc-900"></div>
           <div className="absolute top-0 left-0 -z-10 h-full w-full bg-[radial-gradient(circle_at_50%_120%,rgba(249,115,22,0.15),rgba(249,115,22,0)_50%)] opacity-0 transition-opacity duration-500 group-hover:opacity-100"></div>
           <div className="absolute top-0 left-[-100%] h-full w-1/2 -skew-x-45 bg-white/5 transition-all duration-700 group-hover:left-[150%]"></div>
         </div>
 
-        {/* --- MODIFIED: Use justify-start --- */}
         <div className="mx-auto flex h-full min-h-[44px] max-w-7xl items-center justify-start">
           {/* Left Section (Logo, Clock/Dropdown) */}
           <div className="flex flex-shrink-0 items-center gap-4">
@@ -139,25 +132,30 @@ const Navbar = () => {
                 <Trophy className="size-6 text-orange-400 drop-shadow-[0_0_8px_theme(colors.amber.500/0.8)] transition-transform duration-300 group-hover:scale-110 hover:rotate-12" />{" "}
                 {/* Used drop-shadow */}
                 <div className="h-6 w-px bg-white/30"></div>
-                <h1
-                  style={{
-                    filter: "drop-shadow(0 0 2px rgba(255, 255, 255, 0.4))",
-                  }}
-                  className="hidden items-center bg-gradient-to-br from-white to-zinc-400 bg-clip-text py-2 pr-3 text-xl font-bold text-transparent sm:flex"
-                >
-                  <Image
-                    src="/princeton.png" // Ensure this path is correct in your public folder
-                    alt="Logo P" // More descriptive alt text
-                    className="inline size-[1rem] object-contain align-middle" // Added margin-right
-                    priority={true}
-                    quality={100}
-                    unoptimized={true}
-                    loading="eager"
-                    width={16} // Explicit width/height matching size-4
-                    height={16}
-                  />
-                  ODIUM
-                </h1>
+                <div className="-mt-3 flex flex-col leading-tight">
+                  <h1
+                    style={{
+                      filter: "drop-shadow(0 0 2px rgba(255, 255, 255, 0.4))",
+                    }}
+                    className="hidden items-center bg-gradient-to-br from-white to-zinc-400 bg-clip-text py-2 pr-3 text-xl font-bold text-transparent sm:flex"
+                  >
+                    <Image
+                      src="/princeton.png"
+                      alt="Logo P"
+                      className="mr-[-0.03rem] inline size-[0.92rem] object-contain align-middle"
+                      priority={true}
+                      quality={100}
+                      unoptimized={true}
+                      loading="eager"
+                      width={16}
+                      height={16}
+                    />
+                    ODIUM
+                  </h1>
+                  <h2 className="-mt-3 hidden text-[0.65rem] font-medium text-zinc-400 sm:block">
+                    By <span className="font-bold">HackPrinceton</span>
+                  </h2>
+                </div>
               </div>
             </Tooltip>
 
@@ -170,7 +168,6 @@ const Navbar = () => {
                     .resolvedOptions()
                     .timeZone.split("/")[1]
                     ?.replace("_", " ") ?? "Local"}{" "}
-                  {/* Added fallback */}
                 </span>
                 <div className="h-4 w-px bg-white/10"></div>
                 <span className="font-mono font-medium text-zinc-200">
@@ -183,9 +180,7 @@ const Navbar = () => {
             {currentEvent && (
               <div className="hidden w-full min-w-48 md:block">
                 <Tooltip content="Switch Event" position="bottom">
-                  <div>
-                    {" "}
-                    {/* Tooltip needs a div child */}
+                  <div className="ml-2">
                     <CustomDropdown
                       value={currentEvent.id}
                       onChange={(id) => setCurrentEventId(id)}
@@ -202,10 +197,7 @@ const Navbar = () => {
             )}
           </div>
 
-          {/* --- MODIFIED: Wrap right section in ml-auto div --- */}
           <div className="ml-auto flex-shrink-0">
-            {" "}
-            {/* Added flex-shrink-0 */}
             <AnimatePresence mode="wait">
               {currentEvent ? (
                 <motion.div
@@ -248,12 +240,10 @@ const Navbar = () => {
                   />
                   <Tooltip content="Download Results CSV" position="bottom">
                     <div>
-                      {" "}
-                      {/* Tooltip needs a div child */}
                       <button
-                        onClick={() => void handleDownload()} // Explicit void
+                        onClick={() => void handleDownload()}
                         disabled={isExporting}
-                        className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm font-semibold text-zinc-300 shadow-inner shadow-white/10 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50" // Use opacity-50
+                        className="hidden items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm font-semibold text-zinc-300 shadow-inner shadow-white/10 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 md:flex" // Use opacity-50
                       >
                         {isExporting ? (
                           <Loader className="size-4 animate-spin" />
@@ -274,14 +264,17 @@ const Navbar = () => {
                   className="flex items-center gap-4 rounded-lg bg-black/20 px-4 py-2 text-sm shadow-inner shadow-white/10"
                 >
                   <LayoutGrid className="size-4 text-zinc-400" />
-                  <span className="text-zinc-300">
+                  <span className="hidden text-zinc-300 sm:inline">
                     Select an event to begin
                   </span>
                   <div className="h-4 w-px bg-white/10"></div>
-                  <span className="font-semibold text-orange-400">
-                    {events.length}
-                  </span>
-                  <span className="text-zinc-400">Events Loaded</span>
+                  <div className="flex gap-2">
+                    <span className="font-semibold text-orange-400">
+                      {events.length}
+                    </span>
+                    {"  "}
+                    <span className="text-zinc-400">Events Loaded</span>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
