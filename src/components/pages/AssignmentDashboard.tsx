@@ -355,7 +355,7 @@ const AssignmentDashboard = () => {
     } catch (error) {
       console.error("Failed to remove assignment:", error);
       showToast("An error occurred while removing the assignment.", "error");
-      throw error; // Re-throw error
+      throw error;
     }
   };
 
@@ -939,7 +939,7 @@ const AssignmentDashboard = () => {
                                   className="size-4 cursor-pointer rounded border-zinc-600 bg-zinc-900 text-orange-600 focus:ring-2 focus:ring-orange-500/50 disabled:cursor-not-allowed"
                                 />
                                 <span className="text-sm font-medium">
-                                  {team.name}
+                                  {team.name} (#{team.number})
                                 </span>
                               </div>
                               {hasJudged ? (
