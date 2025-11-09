@@ -21,17 +21,17 @@ import {
   PlusIcon,
   UserMinus,
 } from "lucide-react";
-import { db } from "../../firebase/config";
-import { useAppContext } from "../../context/AppContext";
-import type { Assignment, Judge, Team } from "../../lib/types";
-import { Card } from "../ui/Card";
+import { db } from "../../firebase/config"; // Ensure path is correct
+import { useAppContext } from "../../context/AppContext"; // Ensure path is correct
+import type { Assignment, Judge, Team } from "../../lib/types"; // Ensure path is correct
+import { Card } from "../ui/Card"; // Ensure paths are correct
 import MotionCard from "../ui/MotionCard";
 import { Button } from "../ui/Button";
 import { CustomDropdown } from "../ui/CustomDropdown";
 import { Input } from "../ui/Input";
-import ScoreEntryForm from "../shared/ScoreEntryForm";
+import ScoreEntryForm from "../shared/ScoreEntryForm"; // Ensure path is correct
 import Tooltip from "../ui/Tooltip";
-import JudgeDetailsModal from "../shared/JudgeDetailsModal";
+import JudgeDetailsModal from "../shared/JudgeDetailsModal"; // <--- Import shared modal
 
 // --- Helper function for new logic ---
 /**
@@ -449,9 +449,11 @@ const AssignmentDashboard = () => {
       );
       const assignedBlockSignatures = new Set<string>();
 
+      // --- [FIX for Subsequent Duplicates] ---
       // Check against ALL existing assignments (submitted or active), not just submitted ones.
       const existingBlockArrays: string[][] = [];
       for (const assignment of assignments) {
+        // <--- FIX: Use `assignments`
         if (
           assignment.teamIds.length === 5 &&
           assignment.floorId === selectedFloorId
@@ -460,6 +462,7 @@ const AssignmentDashboard = () => {
           existingBlockArrays.push([...assignment.teamIds].sort());
         }
       }
+      // --- [END FIX] ---
 
       const newAssignmentsToCreate: { judge: Judge; teams: Team[] }[] = [];
       const failedAssignments: { judgeName: string; reason: string }[] = [];
@@ -497,41 +500,33 @@ const AssignmentDashboard = () => {
         let bestAssignment: Team[] | null = null;
         let lowestTotalScore = Infinity;
 
-        // Single pass logic
+        // --- [MODIFICATION] PASS 1: Strict ---
+        // Try to find a block that is not "too similar"
         for (let i = 0; i <= candidateTeams.length - 5; i++) {
           const window = candidateTeams.slice(i, i + 5);
-          const windowTeamIds = window.map((t) => t.id).sort(); // Get sorted IDs
+          const windowTeamIds = window.map((t) => t.id).sort();
 
-          // --- [Hammad's Rule Check] ---
-          // "Linear scan" all submitted blocks for high similarity
           let isTooSimilar = false;
           for (const existingBlock of existingBlockArrays) {
-            // <--- FIX: Use renamed array
             const commonCount = getCommonTeamCount(
               windowTeamIds,
               existingBlock,
             );
-            // Block if 4 or 5 teams are the same
             if (commonCount >= 4) {
               isTooSimilar = true;
-              break; // No need to check others
+              break;
             }
           }
 
           if (isTooSimilar) {
-            continue; // Skip this block, it's too similar to a past one
+            continue; // Skip this block
           }
 
-          // Calculate pressure score
           const pressureScore = window.reduce(
             (sum, team) => sum + (ephemeralPressureMap.get(team.id) || 0),
             0,
           );
-
-          // Calculate closeness penalty
           const closenessPenalty = window[4].number - window[0].number;
-
-          // Combine scores
           const totalScore = pressureScore * 1000 + closenessPenalty;
 
           if (totalScore < lowestTotalScore) {
@@ -539,6 +534,32 @@ const AssignmentDashboard = () => {
             bestAssignment = window;
           }
         }
+
+        // --- [MODIFICATION] PASS 2: Relaxed (if Pass 1 found nothing) ---
+        // If no block was found, run again *without* the similarity check.
+        // This ensures the judge gets *something*.
+        if (bestAssignment === null) {
+          lowestTotalScore = Infinity; // Reset score
+
+          for (let i = 0; i <= candidateTeams.length - 5; i++) {
+            const window = candidateTeams.slice(i, i + 5);
+
+            // [Hammad's Rule (isTooSimilar) is intentionally skipped]
+
+            const pressureScore = window.reduce(
+              (sum, team) => sum + (ephemeralPressureMap.get(team.id) || 0),
+              0,
+            );
+            const closenessPenalty = window[4].number - window[0].number;
+            const totalScore = pressureScore * 1000 + closenessPenalty;
+
+            if (totalScore < lowestTotalScore) {
+              lowestTotalScore = totalScore;
+              bestAssignment = window;
+            }
+          }
+        }
+        // --- [END MODIFICATION] ---
 
         if (bestAssignment) {
           // --- Reversal Logic ---
@@ -575,10 +596,10 @@ const AssignmentDashboard = () => {
             );
           }
         } else {
+          // This should now be almost impossible
           failedAssignments.push({
             judgeName: judge.name,
-            reason:
-              "no suitable group of 5 teams found (all available blocks may be judged or too similar to past)",
+            reason: "no suitable group of 5 teams found (all criteria failed)",
           });
         }
       }
