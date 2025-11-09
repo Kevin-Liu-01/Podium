@@ -21,17 +21,17 @@ import {
   PlusIcon,
   UserMinus,
 } from "lucide-react";
-import { db } from "../../firebase/config"; // Ensure path is correct
-import { useAppContext } from "../../context/AppContext"; // Ensure path is correct
-import type { Assignment, Judge, Team } from "../../lib/types"; // Ensure path is correct
-import { Card } from "../ui/Card"; // Ensure paths are correct
+import { db } from "../../firebase/config";
+import { useAppContext } from "../../context/AppContext";
+import type { Assignment, Judge, Team } from "../../lib/types";
+import { Card } from "../ui/Card";
 import MotionCard from "../ui/MotionCard";
 import { Button } from "../ui/Button";
 import { CustomDropdown } from "../ui/CustomDropdown";
 import { Input } from "../ui/Input";
-import ScoreEntryForm from "../shared/ScoreEntryForm"; // Ensure path is correct
+import ScoreEntryForm from "../shared/ScoreEntryForm";
 import Tooltip from "../ui/Tooltip";
-import JudgeDetailsModal from "../shared/JudgeDetailsModal"; // <--- Import shared modal
+import JudgeDetailsModal from "../shared/JudgeDetailsModal";
 
 // --- Helper function for new logic ---
 /**
@@ -355,7 +355,7 @@ const AssignmentDashboard = () => {
     } catch (error) {
       console.error("Failed to remove assignment:", error);
       showToast("An error occurred while removing the assignment.", "error");
-      throw error;
+      throw error; // Re-throw
     }
   };
 
@@ -424,17 +424,17 @@ const AssignmentDashboard = () => {
     if (!selectedFloorId) return showToast("Please select a floor.", "error");
     setIsAssigning(true);
     try {
+      // This is still needed for checking a judge's *personal* history
       const allSubmittedAssignments = assignments.filter((a) => a.submitted);
 
       const globallyLockedTeamIds = new Set<string>();
 
-      // --- [MODIFIED] Shuffle the selected judges list ---
+      // --- Shuffle the selected judges list ---
       const selectedJudgesList = shuffleArray(
         autoSelectedJudgeIds
           .map((id) => judges.find((j) => j.id === id))
           .filter((j): j is Judge => !!j),
       );
-      // --- [END MODIFICATION] ---
 
       // --- Overlap Logic ---
       const availablePool = allTeamsOnFloor.filter(
@@ -449,17 +449,15 @@ const AssignmentDashboard = () => {
       );
       const assignedBlockSignatures = new Set<string>();
 
-      // --- [Hammad's Rule] ---
-      // Store as array of ID arrays for comparison
-      const submittedBlockArrays: string[][] = [];
-      for (const assignment of allSubmittedAssignments) {
-        // We only care about standard 5-team blocks for this rule
+      // Check against ALL existing assignments (submitted or active), not just submitted ones.
+      const existingBlockArrays: string[][] = [];
+      for (const assignment of assignments) {
         if (
           assignment.teamIds.length === 5 &&
           assignment.floorId === selectedFloorId
         ) {
           // Store the sorted array of IDs
-          submittedBlockArrays.push([...assignment.teamIds].sort());
+          existingBlockArrays.push([...assignment.teamIds].sort());
         }
       }
 
@@ -468,7 +466,7 @@ const AssignmentDashboard = () => {
 
       for (const judge of selectedJudgesList) {
         const alreadyJudgedIds = new Set(
-          allSubmittedAssignments
+          allSubmittedAssignments // This is correct, only check *submitted* for a judge's personal history
             .filter((a) => a.judgeId === judge.id)
             .flatMap((a) => a.teamIds),
         );
@@ -507,10 +505,11 @@ const AssignmentDashboard = () => {
           // --- [Hammad's Rule Check] ---
           // "Linear scan" all submitted blocks for high similarity
           let isTooSimilar = false;
-          for (const submittedBlock of submittedBlockArrays) {
+          for (const existingBlock of existingBlockArrays) {
+            // <--- FIX: Use renamed array
             const commonCount = getCommonTeamCount(
               windowTeamIds,
-              submittedBlock,
+              existingBlock,
             );
             // Block if 4 or 5 teams are the same
             if (commonCount >= 4) {
@@ -555,6 +554,12 @@ const AssignmentDashboard = () => {
           }
 
           newAssignmentsToCreate.push({ judge, teams: finalTeams });
+
+          // --- [CRITICAL FIX] ---
+          // Add the newly assigned block to the `existingBlockArrays`
+          // so it's blocked for the *next judge in this same batch*.
+          existingBlockArrays.push(finalTeams.map((t) => t.id).sort());
+          // --- [END CRITICAL FIX] ---
 
           // --- Update Pressure/Locks ---
           if (isOverlapMode) {
