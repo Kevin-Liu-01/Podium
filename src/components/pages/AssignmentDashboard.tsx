@@ -576,11 +576,9 @@ const AssignmentDashboard = () => {
 
           newAssignmentsToCreate.push({ judge, teams: finalTeams });
 
-          // --- [CRITICAL FIX] ---
           // Add the newly assigned block to the `existingBlockArrays`
           // so it's blocked for the *next judge in this same batch*.
           existingBlockArrays.push(finalTeams.map((t) => t.id).sort());
-          // --- [END CRITICAL FIX] ---
 
           // --- Update Pressure/Locks ---
           if (isOverlapMode) {

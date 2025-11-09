@@ -99,10 +99,7 @@ const JudgeListItem = ({
               <Icon className="size-3" /> {label}
             </div>
             <span className="rounded-full bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-300">
-              Saw {completedTeamsCount} / {totalTeamsOnFloor}
-            </span>
-            <span className="rounded-full bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-300">
-              Assigned {judge.completedAssignments ?? 0}x
+              Reviewed {completedTeamsCount} / {totalTeamsOnFloor} Teams
             </span>
           </div>
         </div>
