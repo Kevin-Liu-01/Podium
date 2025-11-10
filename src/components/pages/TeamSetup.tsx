@@ -1,4 +1,3 @@
-// pages/TeamSetup.tsx
 "use client";
 import React, { useState, useMemo, useEffect } from "react";
 import {
@@ -25,6 +24,8 @@ import {
   Hash,
   Pause,
   Play,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 import { db } from "../../firebase/config";
 import { useAppContext } from "../../context/AppContext";
@@ -38,6 +39,7 @@ import { Card } from "../ui/Card";
 import { Label } from "../ui/Label";
 import ConfirmationDialog from "../ui/ConfirmationDialog";
 import Tooltip from "../ui/Tooltip";
+import { Checkbox } from "../ui/Checkbox";
 
 // Type for the team to be imported
 type ParsedTeam = {
@@ -64,6 +66,7 @@ const TeamSetup = () => {
   const [importMode, setImportMode] = useState<"auto" | "manual">("manual");
   const [isImporting, setIsImporting] = useState(false);
   const [teamsToImport, setTeamsToImport] = useState<ParsedTeam[]>([]);
+  const [isOverwrite, setIsOverwrite] = useState(false); // <-- [NEW] State for overwrite mode
 
   // State for Manual Add
   const [newTeamNumber, setNewTeamNumber] = useState("");
@@ -289,13 +292,15 @@ const TeamSetup = () => {
         return false;
       }
 
-      if (teams.length > 0 && existingNumbers.has(number)) {
+      // --- [MODIFIED] Check for existing teams is now conditional ---
+      if (teams.length > 0 && existingNumbers.has(number) && !isOverwrite) {
         showToast(
-          `Error on line ${lineNum}: Team number ${number} already exists. Clear teams first or use manual add.`,
+          `Error on line ${lineNum}: Team number ${number} already exists. To update it, check the "Overwrite Mode" box. Otherwise, clear teams first.`,
           "error",
         );
         return false;
       }
+      // --- [END MODIFICATION] ---
 
       const floor = floors.find(
         (f) => number >= f.teamNumberStart && number <= f.teamNumberEnd,
@@ -348,25 +353,51 @@ const TeamSetup = () => {
 
     setTeamsToImport(parsedTeams); // Set confirmation details
     setConfirmTitle("Confirm Team Import");
-    setConfirmContent(
-      <>
-        <p>
-          You are about to import{" "}
-          <strong className="text-white">{parsedTeams.length}</strong> teams.
-        </p>
-        {teams.length > 0 && (
-          <p className="mt-3 font-semibold text-rose-400">
-            This will DELETE all {teams.length} existing teams first. This
-            action cannot be undone.
+
+    if (isOverwrite) {
+      const newCount = parsedTeams.filter(
+        (t) => !existingNumbers.has(t.number),
+      ).length;
+      const updateCount = parsedTeams.length - newCount;
+      setConfirmContent(
+        <>
+          <p>
+            You are about to <strong className="text-white">Merge</strong>{" "}
+            <strong className="text-white">{parsedTeams.length}</strong> teams.
           </p>
-        )}
-        <p className="mt-3 text-sm text-zinc-400">
-          First team: "{parsedTeams[0].name}" (# {parsedTeams[0].number}) <br />
-          Last team: "{parsedTeams[parsedTeams.length - 1].name}" (#{" "}
-          {parsedTeams[parsedTeams.length - 1].number})
-        </p>
-      </>,
-    );
+          <ul className="mt-3 list-inside list-disc space-y-1 text-zinc-300">
+            <li>
+              <strong className="text-white">{newCount}</strong> new teams will
+              be <strong className="text-emerald-400">added</strong>.
+            </li>
+            <li>
+              <strong className="text-white">{updateCount}</strong> existing
+              teams will be <strong className="text-amber-400">updated</strong>.
+            </li>
+          </ul>
+          <p className="mt-3 font-semibold text-zinc-400">
+            No teams will be deleted.
+          </p>
+        </>,
+      );
+    } else {
+      setConfirmContent(
+        <>
+          <p>
+            You are about to import{" "}
+            <strong className="text-white">{parsedTeams.length}</strong> new
+            teams.
+          </p>
+          {teams.length > 0 && (
+            <p className="mt-3 font-semibold text-rose-400">
+              This will DELETE all {teams.length} existing teams first. This
+              action cannot be undone.
+            </p>
+          )}
+        </>,
+      );
+    }
+
     setConfirmAction("import");
     setIsConfirmOpen(true);
   };
@@ -380,31 +411,71 @@ const TeamSetup = () => {
         `users/${user.uid}/events/${currentEvent.id}/teams`,
       );
 
-      if (teams.length > 0) {
-        const deleteBatch = writeBatch(db);
-        const existingTeamsSnapshot = await getDocs(query(teamsCollectionRef));
-        existingTeamsSnapshot.forEach((doc) => deleteBatch.delete(doc.ref));
-        await deleteBatch.commit();
+      if (isOverwrite) {
+        // MERGE/OVERWRITE LOGIC
+        const teamNumberToId = new Map(teams.map((t) => [t.number, t.id]));
+        const batch = writeBatch(db);
+
+        for (const team of teamsToImport) {
+          if (teamNumberToId.has(team.number)) {
+            // This is an UPDATE
+            const teamId = teamNumberToId.get(team.number)!;
+            const teamRef = doc(teamsCollectionRef, teamId);
+            batch.update(teamRef, {
+              name: team.name,
+              floorId: team.floorId,
+              number: team.number, // Ensure number is also updated if case changes (though it shouldn't)
+            });
+          } else {
+            // This is an ADD
+            const newTeamRef = doc(teamsCollectionRef);
+            batch.set(newTeamRef, {
+              name: team.name,
+              number: team.number,
+              floorId: team.floorId,
+              reviewedBy: [],
+              totalScore: 0,
+              averageScore: 0,
+              isPaused: false,
+            });
+          }
+        }
+        await batch.commit();
+        showToast(
+          `${teamsToImport.length} teams merged successfully!`,
+          "success",
+        );
+      } else {
+        // REPLACE ALL LOGIC
+        if (teams.length > 0) {
+          const deleteBatch = writeBatch(db);
+          const existingTeamsSnapshot = await getDocs(
+            query(teamsCollectionRef),
+          );
+          existingTeamsSnapshot.forEach((doc) => deleteBatch.delete(doc.ref));
+          await deleteBatch.commit();
+        }
+
+        const addBatch = writeBatch(db);
+        for (const team of teamsToImport) {
+          const newTeamRef = doc(teamsCollectionRef);
+          addBatch.set(newTeamRef, {
+            name: team.name,
+            number: team.number,
+            floorId: team.floorId,
+            reviewedBy: [],
+            totalScore: 0,
+            averageScore: 0,
+            isPaused: false,
+          });
+        }
+        await addBatch.commit();
+        showToast(
+          `${teamsToImport.length} teams imported successfully!`,
+          "success",
+        );
       }
 
-      const addBatch = writeBatch(db);
-      for (const team of teamsToImport) {
-        const newTeamRef = doc(teamsCollectionRef); // Generate ID client-side
-        addBatch.set(newTeamRef, {
-          name: team.name,
-          number: team.number,
-          floorId: team.floorId,
-          reviewedBy: [],
-          totalScore: 0,
-          averageScore: 0,
-          isPaused: false,
-        });
-      }
-      await addBatch.commit();
-      showToast(
-        `${teamsToImport.length} teams imported successfully!`,
-        "success",
-      );
       setBulkImportData("");
       setTeamsToImport([]);
     } catch (error) {
@@ -747,11 +818,31 @@ const TeamSetup = () => {
                         />
                       </motion.div>
                     </div>
-                    <div className="mt-auto">
+                    <div className="mt-auto space-y-4">
                       {" "}
                       {/* Button and Warning Wrapper */}
-                      {teams.length > 0 && (
-                        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-900/20 p-3 text-amber-300">
+                      {/* --- [NEW] Overwrite Checkbox --- */}
+                      <Checkbox
+                        id="overwrite-check"
+                        checked={isOverwrite}
+                        onChange={setIsOverwrite}
+                        label={
+                          <>
+                            <span className="font-semibold text-white">
+                              Overwrite Mode (Merge)
+                            </span>
+                            <span className="mt-1 block text-xs text-zinc-400">
+                              If a team number already exists, its name and
+                              floor will be updated. No teams will be deleted.
+                            </span>
+                          </>
+                        }
+                      />
+                      {/* --- [END NEW] --- */}
+                      {teams.length > 0 && !isOverwrite && (
+                        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-900/20 p-3 text-amber-300">
+                          {" "}
+                          {/* Use mb */}
                           <AlertTriangle className="mt-0.5 size-4 flex-shrink-0" />
                           <p className="text-xs">
                             This will replace the{" "}
@@ -771,9 +862,13 @@ const TeamSetup = () => {
                           <Upload className="mr-2 size-4" />
                         )}
                         {isImporting
-                          ? "Validating..." // Change text
+                          ? "Validating..."
                           : `Validate & ${
-                              teams.length > 0 ? "Replace All" : "Import Teams"
+                              isOverwrite
+                                ? "Merge Teams"
+                                : teams.length > 0
+                                  ? "Replace All Teams"
+                                  : "Import Teams"
                             }`}
                       </Button>
                     </div>

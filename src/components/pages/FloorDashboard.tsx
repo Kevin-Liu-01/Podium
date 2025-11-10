@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   XCircle,
   Users2,
+  LayoutGrid, // <-- [NEW] Icon
 } from "lucide-react";
 import { db } from "../../firebase/config";
 import Tooltip from "../ui/Tooltip";
@@ -27,6 +28,7 @@ import JudgeDetailsModal from "../shared/JudgeDetailsModal";
 import { CustomDropdown } from "../ui/CustomDropdown";
 import { Input } from "../ui/Input";
 import { Card } from "../ui/Card";
+import TeamStatusMatrixModal from "../shared/TeamStatusMatrixModal"; // <-- [NEW] Import modal
 
 const TEAM_SORT_OPTIONS = [
   { value: "number", label: "Sort by Team #" },
@@ -46,6 +48,7 @@ const JUDGE_SORT_OPTIONS = [
   { value: "least-completed", label: "Sort by Fewest Completed" },
 ];
 
+// --- [NEW] Upgraded Judge List Item Component ---
 const JudgeListItem = ({
   judge,
   status,
@@ -54,6 +57,7 @@ const JudgeListItem = ({
   totalTeamsOnFloor,
   onViewDetails,
   onEnterScores,
+  onViewMatrix,
 }: {
   judge: Judge;
   status: "busy" | "assignable" | "finished";
@@ -62,6 +66,7 @@ const JudgeListItem = ({
   totalTeamsOnFloor: number;
   onViewDetails: () => void;
   onEnterScores: () => void;
+  onViewMatrix: () => void;
 }) => {
   const statusConfig = {
     busy: {
@@ -89,7 +94,7 @@ const JudgeListItem = ({
       className="flex flex-col gap-3 rounded-lg border border-zinc-700/50 bg-zinc-800/80 p-3"
     >
       {/* Top section: Judge Info */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3">
         <div className="flex-1">
           <p className="font-bold">{judge.name}</p>
           <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -103,11 +108,20 @@ const JudgeListItem = ({
             </span>
           </div>
         </div>
-        <Tooltip content="View Judge Details / Move" position="left">
-          <Button onClick={onViewDetails} size="sm">
-            <SlidersHorizontal className="size-4" />
-          </Button>
-        </Tooltip>
+        {/* --- [MODIFIED] Added Matrix Button --- */}
+        <div className="flex flex-shrink-0 items-center gap-2">
+          <Tooltip content="View Judge's Team Matrix" position="left">
+            <Button onClick={onViewMatrix} variant="secondary" size="sm">
+              <LayoutGrid className="size-4" />
+            </Button>
+          </Tooltip>
+          <Tooltip content="View Judge Details / Move" position="left">
+            <Button onClick={onViewDetails} variant="secondary" size="sm">
+              <SlidersHorizontal className="size-4" />
+            </Button>
+          </Tooltip>
+        </div>
+        {/* --- [END MODIFICATION] --- */}
       </div>
 
       {/* Middle section: Active Teams (if busy) */}
@@ -118,13 +132,14 @@ const JudgeListItem = ({
           </p>
           <div className="flex flex-wrap gap-1.5">
             {currentTeams.map((team) => (
-              <span
-                key={team.id}
-                className="max-w-[200px] truncate rounded-full bg-zinc-600 px-2 py-0.5 text-[0.65rem] text-white"
-                title={team.name}
-              >
-                #{team.number} {team.name}
-              </span>
+              <Tooltip key={team.id} content={team.name} position="top">
+                <span
+                  className="max-w-[200px] truncate rounded-full bg-zinc-600 px-2.5 py-0.5 text-xs text-white"
+                  title={team.name}
+                >
+                  #{team.number}
+                </span>
+              </Tooltip>
             ))}
           </div>
         </div>
@@ -156,6 +171,8 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
     null,
   );
   const [viewingJudge, setViewingJudge] = useState<Judge | null>(null);
+  const [isMatrixModalOpen, setIsMatrixModalOpen] = useState(false); // <-- [NEW] Modal state
+  const [matrixJudge, setMatrixJudge] = useState<Judge | null>(null); // <-- [NEW] State for judge-specific matrix
 
   const [isHandlingSwitchFloor, setIsHandlingSwitchFloor] = useState(false);
   const [isHandlingRemoveAssignment, setIsHandlingRemoveAssignment] =
@@ -473,7 +490,7 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
   }) => (
     <button
       onClick={() => setStatusFilter(value)}
-      className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors ${
+      className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
         statusFilter === value
           ? "bg-orange-600 text-white"
           : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
@@ -501,7 +518,25 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
   }
 
   return (
-    <div className="w-full overflow-hidden md:overflow-visible">
+    <div>
+      <TeamStatusMatrixModal
+        isOpen={isMatrixModalOpen}
+        onClose={() => setIsMatrixModalOpen(false)}
+        teams={teamsOnFloor} // Pass teams for this floor
+        assignments={assignments}
+        floorName={floor.name}
+      />
+
+      {matrixJudge && (
+        <TeamStatusMatrixModal
+          isOpen={!!matrixJudge}
+          onClose={() => setMatrixJudge(null)}
+          teams={teamsOnFloor} // Pass teams for this floor
+          assignments={assignments.filter((a) => a.judgeId === matrixJudge.id)} // <-- Filter assignments for THIS judge
+          floorName={`${matrixJudge.name}'s Matrix - ${floor.name}`}
+        />
+      )}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* --- LEFT COLUMN: JUDGE CONTROL PANEL --- */}
         <div className="lg:col-span-1">
@@ -588,6 +623,7 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
                           totalTeamsOnFloor={teamsOnFloor.length}
                           // --- END MODIFICATION ---
                           onViewDetails={() => setViewingJudge(judge)}
+                          onViewMatrix={() => setMatrixJudge(judge)} // <-- [NEW] Pass handler
                           onEnterScores={() => {
                             const assignment = assignmentMap.get(
                               judge.currentAssignmentId!,
@@ -625,7 +661,19 @@ const FloorDashboard = ({ floor }: { floor: Floor }) => {
                   {/* --- END MODIFICATION --- */}
                 </p>
               </div>
+              {/* --- [NEW] Added Matrix Button --- */}
               <div className="flex flex-col gap-2 p-1 sm:flex-row">
+                <Tooltip content="View Team Status Matrix" position="bottom">
+                  <Button
+                    onClick={() => setIsMatrixModalOpen(true)}
+                    variant="secondary"
+                    className="flex-shrink-0"
+                    disabled={teamsOnFloor.length === 0}
+                  >
+                    <LayoutGrid className="size-4" />
+                  </Button>
+                </Tooltip>
+                {/* --- [END NEW] --- */}
                 <CustomDropdown
                   value={teamFilter}
                   onChange={(val) => setTeamFilter(val as TeamFilter)}

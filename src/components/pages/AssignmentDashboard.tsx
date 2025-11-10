@@ -20,18 +20,20 @@ import {
   Loader2,
   PlusIcon,
   UserMinus,
+  LayoutGrid,
 } from "lucide-react";
-import { db } from "../../firebase/config"; // Ensure path is correct
-import { useAppContext } from "../../context/AppContext"; // Ensure path is correct
-import type { Assignment, Judge, Team } from "../../lib/types"; // Ensure path is correct
-import { Card } from "../ui/Card"; // Ensure paths are correct
+import { db } from "../../firebase/config";
+import { useAppContext } from "../../context/AppContext";
+import type { Assignment, Judge, Team } from "../../lib/types";
+import { Card } from "../ui/Card";
 import MotionCard from "../ui/MotionCard";
 import { Button } from "../ui/Button";
 import { CustomDropdown } from "../ui/CustomDropdown";
 import { Input } from "../ui/Input";
-import ScoreEntryForm from "../shared/ScoreEntryForm"; // Ensure path is correct
+import ScoreEntryForm from "../shared/ScoreEntryForm";
 import Tooltip from "../ui/Tooltip";
-import JudgeDetailsModal from "../shared/JudgeDetailsModal"; // <--- Import shared modal
+import JudgeDetailsModal from "../shared/JudgeDetailsModal";
+import TeamStatusMatrixModal from "../shared/TeamStatusMatrixModal";
 
 // --- Helper function for new logic ---
 /**
@@ -49,17 +51,22 @@ const getCommonTeamCount = (arr1: string[], arr2: string[]): number => {
   return count;
 };
 
-// --- Judge List Item Component ---
 const JudgeListItem = ({
   judge,
   status,
+  currentTeams,
+  completedTeams,
   onViewDetails,
   onEnterScores,
+  onViewMatrix,
 }: {
   judge: Judge;
   status: "busy" | "assignable" | "finished";
+  currentTeams: Team[];
+  completedTeams: Team[];
   onViewDetails: () => void;
   onEnterScores: () => void;
+  onViewMatrix: () => void;
 }) => {
   const statusConfig = {
     busy: {
@@ -79,38 +86,94 @@ const JudgeListItem = ({
     },
   };
   const { Icon, label, className } = statusConfig[status];
+  const sortedCompleted = useMemo(
+    () => [...completedTeams].sort((a, b) => a.number - b.number),
+    [completedTeams],
+  );
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-zinc-700/50 bg-zinc-800/80 p-3">
-      <div className="flex-1">
-        <p className="font-bold">{judge.name}</p>
-        <div
-          className={`mt-1 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${className}`}
-        >
-          <Icon className="size-3" />
-          {label}
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        {status === "busy" && (
-          <Tooltip content="Enter scores for this assignment" position="left">
-            <Button
-              onClick={onEnterScores}
-              size="sm"
-              className="bg-orange-600 hover:bg-orange-500"
+    <motion.div
+      layout
+      className="flex flex-col gap-3 rounded-lg border border-zinc-700/50 bg-zinc-800/80 p-3"
+    >
+      {/* Top section: Judge Info & Buttons */}
+      <div className="flex items-start gap-3">
+        <div className="flex-1">
+          <p className="font-bold">{judge.name}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <div
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${className}`}
             >
-              <PlusIcon className="size-4" />
-              Enter Scores
+              <Icon className="size-3" /> {label}
+            </div>
+            <span className="rounded-full bg-zinc-700 px-2 py-0.5 text-xs font-medium text-zinc-300">
+              Completed: {completedTeams.length}
+            </span>
+          </div>
+        </div>
+        <div className="flex flex-shrink-0 items-center gap-2">
+          <Tooltip content="View Judge's Team Matrix" position="left">
+            <Button onClick={onViewMatrix} variant="secondary" size="sm">
+              <LayoutGrid className="size-4" />
             </Button>
           </Tooltip>
-        )}
-        <Tooltip content="View judge details" position="left">
-          <Button onClick={onViewDetails} variant="secondary" size="sm">
-            <SlidersHorizontal className="size-4" />
+          <Tooltip content="View Judge Details / Move" position="left">
+            <Button onClick={onViewDetails} variant="secondary" size="sm">
+              <SlidersHorizontal className="size-4" />
+            </Button>
+          </Tooltip>
+        </div>
+      </div>
+
+      {/* Middle section: Active Teams (if busy) */}
+      {status === "busy" && currentTeams.length > 0 && (
+        <div className="border-t border-zinc-700/50 pt-3">
+          <p className="mb-1.5 text-xs font-semibold text-zinc-400">
+            Actively Assigned:
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {currentTeams.map((team) => (
+              <Tooltip key={team.id} content={team.name} position="top">
+                <span className="max-w-[200px] truncate rounded-full bg-zinc-600 px-2.5 py-0.5 text-xs text-white">
+                  #{team.number}
+                </span>
+              </Tooltip>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Completed Teams Section */}
+      {sortedCompleted.length > 0 && (
+        <div className="border-t border-zinc-700/50 pt-3">
+          <p className="mb-1.5 text-xs font-semibold text-zinc-400">
+            Completed:
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {sortedCompleted.map((team) => (
+              <Tooltip key={team.id} content={team.name} position="top">
+                <span className="max-w-[200px] truncate rounded-full bg-emerald-900/50 px-2.5 py-0.5 text-xs text-emerald-300">
+                  #{team.number}
+                </span>
+              </Tooltip>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Bottom section: Enter Scores Button (if busy) */}
+      {status === "busy" && (
+        <Tooltip content="Enter scores for this assignment" position="bottom">
+          <Button
+            onClick={onEnterScores}
+            size="sm"
+            className="w-full bg-orange-600 hover:bg-orange-500"
+          >
+            <PlusIcon className="mr-1 size-4" /> Enter Scores
           </Button>
         </Tooltip>
-      </div>
-    </div>
+      )}
+    </motion.div>
   );
 };
 
@@ -138,7 +201,9 @@ const AssignmentDashboard = () => {
   const [statusFilter, setStatusFilter] = useState<
     "all" | "busy" | "assignable" | "finished"
   >("all");
-  const [viewingJudge, setViewingJudge] = useState<Judge | null>(null); // State to control modal
+  const [viewingJudge, setViewingJudge] = useState<Judge | null>(null);
+  const [isMatrixModalOpen, setIsMatrixModalOpen] = useState(false);
+  const [matrixJudge, setMatrixJudge] = useState<Judge | null>(null);
 
   // Memoized data maps for performance
   const teamMap = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
@@ -164,7 +229,7 @@ const AssignmentDashboard = () => {
         status: "busy" | "assignable" | "finished";
       }
     >();
-    if (!selectedFloorId || !judges || !teams || !assignments) return details; // Add checks for data
+    if (!selectedFloorId || !judges || !teams || !assignments) return details;
 
     const allSubmitted = assignments.filter((a) => a.submitted);
     const allCurrent = assignments.filter((a) => !a.submitted);
@@ -204,7 +269,7 @@ const AssignmentDashboard = () => {
       });
     }
     return details;
-  }, [judges, teams, assignments, selectedFloorId, teamMap, allTeamsOnFloor]); // Added allTeamsOnFloor dependency
+  }, [judges, teams, assignments, selectedFloorId, teamMap, allTeamsOnFloor]);
 
   const { assignableJudges, judgesOnFloor } = useMemo(() => {
     const onFloor = judges.filter((j) => j.floorId === selectedFloorId);
@@ -323,7 +388,7 @@ const AssignmentDashboard = () => {
     } catch (error) {
       showToast("Failed to switch floor.", "error");
       console.error("Floor switch error:", error);
-      throw error; // Re-throw error so modal can handle finally state
+      throw error;
     }
   };
 
@@ -355,7 +420,7 @@ const AssignmentDashboard = () => {
     } catch (error) {
       console.error("Failed to remove assignment:", error);
       showToast("An error occurred while removing the assignment.", "error");
-      throw error; // Re-throw
+      throw error;
     }
   };
 
@@ -449,7 +514,6 @@ const AssignmentDashboard = () => {
       );
       const assignedBlockSignatures = new Set<string>();
 
-      // --- [FIX for Subsequent Duplicates] ---
       // Check against ALL existing assignments (submitted or active), not just submitted ones.
       const existingBlockArrays: string[][] = [];
       for (const assignment of assignments) {
@@ -462,14 +526,13 @@ const AssignmentDashboard = () => {
           existingBlockArrays.push([...assignment.teamIds].sort());
         }
       }
-      // --- [END FIX] ---
 
       const newAssignmentsToCreate: { judge: Judge; teams: Team[] }[] = [];
       const failedAssignments: { judgeName: string; reason: string }[] = [];
 
       for (const judge of selectedJudgesList) {
         const alreadyJudgedIds = new Set(
-          allSubmittedAssignments // This is correct, only check *submitted* for a judge's personal history
+          allSubmittedAssignments //only check *submitted* for a judge's personal history
             .filter((a) => a.judgeId === judge.id)
             .flatMap((a) => a.teamIds),
         );
@@ -500,10 +563,25 @@ const AssignmentDashboard = () => {
         let bestAssignment: Team[] | null = null;
         let lowestTotalScore = Infinity;
 
-        // --- [MODIFICATION] PASS 1: Strict ---
+        // --- ["SPREAD" LOGIC] ---
+        // Create a list of all possible starting indices for the 5-team window
+        // e.g., if length is 10, indices are [0, 1, 2, 3, 4, 5]
+        const indices = Array.from(
+          { length: candidateTeams.length - 4 }, // a length of 10 gives 6 indices (0-5)
+          (_, k) => k,
+        );
+
+        // Shuffle the order to search in.
+        // This is the key to spreading out assignments when all teams have 0 reviews.
+        const shuffledIndices = shuffleArray(indices);
+
+        // --- PASS 1: Strict ---
         // Try to find a block that is not "too similar"
-        for (let i = 0; i <= candidateTeams.length - 5; i++) {
+        // --- Use shuffledIndices ---
+        for (const i of shuffledIndices) {
           const window = candidateTeams.slice(i, i + 5);
+          // This check is needed in case the last index is > length-5
+          if (window.length < 5) continue;
           const windowTeamIds = window.map((t) => t.id).sort();
 
           let isTooSimilar = false;
@@ -535,14 +613,16 @@ const AssignmentDashboard = () => {
           }
         }
 
-        // --- [MODIFICATION] PASS 2: Relaxed (if Pass 1 found nothing) ---
+        // --- PASS 2: Relaxed (if Pass 1 found nothing) ---
         // If no block was found, run again *without* the similarity check.
         // This ensures the judge gets *something*.
         if (bestAssignment === null) {
           lowestTotalScore = Infinity; // Reset score
 
-          for (let i = 0; i <= candidateTeams.length - 5; i++) {
+          // --- Use shuffledIndices ---
+          for (const i of shuffledIndices) {
             const window = candidateTeams.slice(i, i + 5);
+            if (window.length < 5) continue;
 
             // [Hammad's Rule (isTooSimilar) is intentionally skipped]
 
@@ -559,7 +639,6 @@ const AssignmentDashboard = () => {
             }
           }
         }
-        // --- [END MODIFICATION] ---
 
         if (bestAssignment) {
           // --- Reversal Logic ---
@@ -730,14 +809,36 @@ const AssignmentDashboard = () => {
         onClose={() => setViewingJudge(null)}
         onSwitchFloor={handleSwitchFloor}
         onRemoveAssignment={handleRemoveAssignment}
-        onRemoveTeamFromAssignment={handleRemoveTeamFromAssignment} // Pass new handler
+        onRemoveTeamFromAssignment={handleRemoveTeamFromAssignment}
       />
+
+      <TeamStatusMatrixModal
+        isOpen={isMatrixModalOpen}
+        onClose={() => setIsMatrixModalOpen(false)}
+        teams={allTeamsOnFloor}
+        assignments={assignments}
+        floorName={
+          floors.find((f) => f.id === selectedFloorId)?.name ?? "Selected Floor"
+        }
+      />
+
+      {matrixJudge && (
+        <TeamStatusMatrixModal
+          isOpen={!!matrixJudge}
+          onClose={() => setMatrixJudge(null)}
+          teams={allTeamsOnFloor}
+          assignments={assignments.filter((a) => a.judgeId === matrixJudge.id)}
+          floorName={`${matrixJudge.name}'s Matrix - ${
+            floors.find((f) => f.id === selectedFloorId)?.name ??
+            "Selected Floor"
+          }`}
+        />
+      )}
 
       <div className="grid h-full grid-cols-1 gap-4 lg:grid-cols-2">
         {/* --- LEFT COLUMN: CONTROLS --- */}
         <div className="flex flex-col gap-4">
           <MotionCard className="z-20">
-            {" "}
             {/* Floor Selector */}
             <label className="mb-2 block font-semibold">
               Viewing & Assigning on Floor
@@ -1011,7 +1112,21 @@ const AssignmentDashboard = () => {
           <div className="pb-0">
             {" "}
             {/* Header: Title, Search, Filters */}
-            <h2 className="text-xl font-bold">Judge Status Dashboard</h2>
+            {/* --- [NEW] Modified Header --- */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold">Judge Status Dashboard</h2>
+              <Tooltip content="View Team Status Matrix" position="left">
+                <Button
+                  onClick={() => setIsMatrixModalOpen(true)}
+                  variant="secondary"
+                  size="sm"
+                  disabled={allTeamsOnFloor.length === 0}
+                >
+                  <LayoutGrid className="size-4" />
+                </Button>
+              </Tooltip>
+            </div>
+            {/* --- [END NEW] --- */}
             <div className="mt-4 space-y-3">
               <div className="relative">
                 {" "}
@@ -1072,7 +1187,10 @@ const AssignmentDashboard = () => {
                       key={judge.id}
                       judge={judge}
                       status={details.status}
-                      onViewDetails={() => setViewingJudge(judge)} // Open modal here
+                      currentTeams={details.currentTeams}
+                      completedTeams={details.completedTeams}
+                      onViewDetails={() => setViewingJudge(judge)}
+                      onViewMatrix={() => setMatrixJudge(judge)}
                       onEnterScores={() => {
                         const assignment = assignmentMap.get(
                           judge.currentAssignmentId!,
