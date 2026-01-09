@@ -1,4 +1,4 @@
-### PODIUM: Advanced Hackathon Judging Management System
+# PODIUM: Advanced Hackathon Judging Management System
 
 PODIUM is a high-performance judging coordinator built for large-scale hackathons (like HackPrinceton). It solves the complex logistics of assigning dozens of judges to hundreds of projects across multiple floors, ensuring fair distribution, physical efficiency, and judging variety.
 
@@ -30,13 +30,13 @@ The Algorithm: Multi-Pass Relaxation & Randomized Spread
 
 The "Auto Generator" uses a sophisticated scoring and filtering engine to find the optimal 5-team block for a judge.
 
-# Phase 1: Historical Memory & Fuzzy Matching
+### Phase 1: Historical Memory & Fuzzy Matching
 
 Before scanning, the engine builds a signature map of all existing assignments (submitted and active).
 
 The Rule: If a potential 5-team block shares 4 or more teams with any existing block, it is considered "Too Similar" and is discarded in the first pass.
 
-# Phase 2: Shuffled Window Search
+### Phase 2: Shuffled Window Search
 
 To prevent the "Top-Heavy" bug (where projects 1-100 get all the judges while 101-200 wait), the algorithm does not scan teams linearly.
 
@@ -86,7 +86,7 @@ Finished: Proactively calculated. If a judge has fewer than 5 teams left to see 
 
 ## Data Management & Importing
 
-# Bulk Team Setup
+### Bulk Team Setup
 
 The system supports three entry modes:
 
@@ -98,7 +98,7 @@ Smart Import: Accepts raw text strings (e.g., 101, Project Name).
 
 Overwrite/Merge Mode: An advanced feature allowing coordinators to update existing team names or move them between floors without deleting their existing scores or history.
 
-# Floor Management
+### Floor Management
 
 Coordinators define floor ranges (e.g., Floor 1: Teams 1-100). The system automatically validates every assignment against these ranges to ensure judges stay in their assigned physical sectors.
 
