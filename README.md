@@ -1,6 +1,8 @@
-# PODIUM: Advanced Hackathon Judging Management System
+# PODIUM: Hackathon Judging Management System
 
 PODIUM is a high-performance judging coordinator built for large-scale hackathons (like HackPrinceton). It solves the complex logistics of assigning dozens of judges to hundreds of projects across multiple floors, ensuring fair distribution, physical efficiency, and judging variety.
+
+![Demo Screenshot](/public/demo.png)
 
 ## Core Philosophy: The Priority Framework
 
