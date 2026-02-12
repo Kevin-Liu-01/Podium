@@ -427,7 +427,7 @@ const AdminPanel = () => {
                 </Button>
               </form>
             </div>
-            <Card className="max-h-64 overflow-y-auto rounded-lg bg-zinc-900/50 p-3">
+            <Card className="custom-scrollbar max-h-64 overflow-y-auto rounded-lg bg-zinc-900/50 p-3">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-zinc-900/50 backdrop-blur-sm">
                   <tr>

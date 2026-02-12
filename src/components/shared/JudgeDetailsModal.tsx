@@ -266,7 +266,7 @@ const JudgeDetailsModal = ({
                         <History className="size-4 text-emerald-400" />
                         Completed Teams ({completedTeams.length})
                       </h4>
-                      <div className="max-h-32 overflow-y-auto pr-2">
+                      <div className="custom-scrollbar max-h-32 overflow-y-auto pr-2">
                         {" "}
                         {/* Scrollable */}
                         <div className="flex flex-wrap gap-2">

@@ -70,7 +70,7 @@ const ReviewMatrix = ({
   );
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-zinc-700">
+    <div className="custom-scrollbar overflow-x-auto rounded-xl border border-zinc-700">
       <table className="min-w-full divide-y divide-zinc-800 text-center">
         <thead className="bg-zinc-800/90">
           <tr>
@@ -389,7 +389,7 @@ const ResultsView = () => {
       {/* Conditional View */}
       {viewMode === "leaderboard" ? (
         <>
-          <div className="overflow-x-auto rounded-lg border border-zinc-800">
+          <div className="custom-scrollbar overflow-x-auto rounded-lg border border-zinc-800">
             <table className="min-w-full divide-y divide-zinc-800 bg-zinc-900/80">
               <thead className="bg-zinc-800/90">
                 <tr>

@@ -139,7 +139,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       setRooms([]);
       // Set loading false *only* if auth is done and we have no user/event
       if (!authLoading) setDataLoading(false);
-      return () => {}; // Return empty cleanup
+      return () => { }; // Return empty cleanup
     }
 
     setDataLoading(true); // Start loading when dependencies are valid

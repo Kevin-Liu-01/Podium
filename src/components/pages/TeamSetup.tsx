@@ -24,8 +24,6 @@ import {
   Hash,
   Pause,
   Play,
-  CheckSquare,
-  Square,
 } from "lucide-react";
 import { db } from "../../firebase/config";
 import { useAppContext } from "../../context/AppContext";
@@ -131,6 +129,7 @@ const TeamSetup = () => {
         "success",
       );
     } catch (error) {
+      void error; // Mark as intentionally ignored
       showToast("Failed to update team status.", "error");
     } finally {
       setIsPausing(null); // Stop loading
@@ -266,7 +265,7 @@ const TeamSetup = () => {
       } else {
         const parts = line.split(/[\t,:-]/, 2);
         const numberStr = parts[0]?.trim();
-        name = parts[1]?.trim();
+        name = parts[1]?.trim() ?? "";
         if (!numberStr || !name) {
           showToast(
             `Error on line ${lineNum}: Invalid format. Use "Number[Separator]Name".`,
@@ -329,14 +328,16 @@ const TeamSetup = () => {
         return;
       }
       for (let i = 0; i < lines.length; i++) {
-        if (!processLine(lines[i], i, startNum + i)) {
+        const line = lines[i];
+        if (line !== undefined && !processLine(line, i, startNum + i)) {
           hasError = true;
           break;
         }
       }
     } else {
       for (let i = 0; i < lines.length; i++) {
-        if (!processLine(lines[i], i)) {
+        const line = lines[i];
+        if (line !== undefined && !processLine(line, i)) {
           hasError = true;
           break;
         }
@@ -511,12 +512,12 @@ const TeamSetup = () => {
           (a, b) => b.teamNumberEnd - a.teamNumberEnd,
         )[0];
         // Only extend if the new number is greater than the current max
-        if (number > lastFloor?.teamNumberEnd) {
+        if (lastFloor && number > lastFloor.teamNumberEnd) {
           targetFloor = lastFloor;
-          const floorRef = doc(db, `${basePath}/floors`, lastFloor?.id ?? "");
+          const floorRef = doc(db, `${basePath}/floors`, lastFloor.id);
           await updateDoc(floorRef, { teamNumberEnd: number });
           showToast(
-            `Extended ${lastFloor?.name} range to include Team ${number}.`,
+            `Extended ${lastFloor.name} range to include Team ${number}.`,
             "info",
           );
         }
@@ -555,9 +556,9 @@ const TeamSetup = () => {
   const handleConfirm = () => {
     setIsConfirmOpen(false);
     if (confirmAction === "generate") {
-      executeTeamGeneration();
+      void executeTeamGeneration();
     } else if (confirmAction === "import") {
-      executeTeamImport();
+      void executeTeamImport();
     }
     setConfirmAction(null);
   };
@@ -882,7 +883,7 @@ const TeamSetup = () => {
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
-                        handleAddTeam();
+                        void handleAddTeam();
                       }}
                       className="space-y-3"
                     >
@@ -936,7 +937,7 @@ const TeamSetup = () => {
         <div className="h-full lg:col-span-2">
           {" "}
           {/* Adjusted height calculation */}
-          <Card className="h-[calc(100vh-8rem)] overflow-y-auto">
+          <Card className="custom-scrollbar h-[calc(100vh-8rem)] overflow-y-auto">
             {" "}
             {/* Adjusted height */}
             <div className="sticky top-[-1rem] z-10 mt-[-1rem] mb-2 py-3">
@@ -1004,7 +1005,7 @@ const TeamSetup = () => {
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleTogglePause(team.id);
+                                      void handleTogglePause(team.id);
                                     }}
                                     disabled={isPausing === team.id}
                                     className={`flex size-6 items-center justify-center rounded-full border border-zinc-900 transition-colors ${

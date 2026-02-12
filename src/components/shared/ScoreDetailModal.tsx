@@ -253,7 +253,7 @@ const ScoreDetailModal = ({
               onClick={(e) => e.stopPropagation()}
             >
               {/* Render using the dynamically found 'team' */}
-              <Card className="relative max-h-[80vh] overflow-y-auto border-2 border-orange-500/80">
+              <Card className="custom-scrollbar relative max-h-[80vh] overflow-y-auto border-2 border-orange-500/80">
                 {/* [MOD] Close button is now absolute */}
                 <button
                   onClick={onClose}

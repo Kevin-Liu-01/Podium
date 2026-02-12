@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   Loader,
   Clock,
+  Book,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext } from "../../context/AppContext";
@@ -19,6 +20,7 @@ import type { Page } from "../../lib/types";
 import { CustomDropdown } from "../ui/CustomDropdown";
 import Tooltip from "../ui/Tooltip";
 import Image from "next/image";
+import Link from "next/link";
 
 const useClock = () => {
   const [time, setTime] = useState(new Date());
@@ -71,11 +73,10 @@ const Navbar = () => {
       <Tooltip content={label} position="bottom">
         <button
           onClick={() => setPage(targetPage)}
-          className={`relative flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-300 ease-in-out outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 ${
-            isActive
-              ? "bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-[0_0_8px_theme(colors.orange.500)]" // Adjusted shadow
-              : "bg-white/5 text-zinc-300 shadow-inner shadow-white/10 hover:bg-white/10 hover:text-white"
-          }`}
+          className={`relative flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-300 ease-in-out outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 ${isActive
+            ? "bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-[0_0_8px_theme(colors.orange.500)]" // Adjusted shadow
+            : "bg-white/5 text-zinc-300 shadow-inner shadow-white/10 hover:bg-white/10 hover:text-white"
+            }`}
         >
           <span className="size-4 flex-shrink-0">{icon}</span>
           <span className="hidden lg:block">{label}</span>
@@ -101,18 +102,16 @@ const Navbar = () => {
 
   return (
     <nav
-      className={`fixed top-0 right-0 left-0 z-50 transition-all duration-500 ease-in-out ${
-        isScrolled
-          ? "mx-auto w-full max-w-full md:top-0"
-          : "mx-auto max-w-7xl md:top-4 md:px-4"
-      }`}
+      className={`fixed top-0 right-0 left-0 z-50 transition-all duration-500 ease-in-out ${isScrolled
+        ? "mx-auto w-full max-w-full md:top-0"
+        : "mx-auto max-w-7xl md:top-4 md:px-4"
+        }`}
     >
       <div
-        className={`group relative mx-auto border-b border-zinc-700/50 bg-zinc-900/70 p-3 px-4 shadow-2xl shadow-black/50 transition-all duration-500 ease-in-out md:border ${
-          isScrolled
-            ? "backdrop-blur-xl"
-            : "border-transparent bg-transparent shadow-none md:rounded-2xl"
-        }`}
+        className={`group relative mx-auto border-b border-zinc-700/50 bg-zinc-900/70 p-3 px-4 shadow-2xl shadow-black/50 transition-all duration-500 ease-in-out md:border ${isScrolled
+          ? "backdrop-blur-xl"
+          : "border-transparent bg-transparent shadow-none md:rounded-2xl"
+          }`}
       >
         {/* Background elements */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl">
@@ -261,7 +260,7 @@ const Navbar = () => {
                   initial="hidden"
                   animate="visible"
                   exit="exit"
-                  className="flex items-center gap-4 rounded-lg bg-black/20 px-4 py-2 text-sm shadow-inner shadow-white/10"
+                  className="flex items-center gap-4 rounded-lg bg-black/20 pl-4 pr-2 py-2 text-sm shadow-inner shadow-white/10"
                 >
                   <LayoutGrid className="size-4 text-zinc-400" />
                   <span className="hidden text-zinc-300 sm:inline">
@@ -275,8 +274,18 @@ const Navbar = () => {
                     {"  "}
                     <span className="text-zinc-400">Events Loaded</span>
                   </div>
+                  <Link href="/instructions" className="flex items-center gap-2
+                  rounded-lg bg-gray-800/20 px-3 py-2 text-sm font-semibold shadow-inner shadow-white/10 transition-colors hover:bg-white/10 hover:text-white
+                  ">
+                    <Book className="size-4 text-zinc-400" />
+                    <span className="hidden text-zinc-300 sm:inline">
+                      Instructions
+                    </span>
+                  </Link>
                 </motion.div>
               )}
+
+
             </AnimatePresence>
           </div>
         </div>

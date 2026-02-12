@@ -9,7 +9,9 @@ import {
   Mail,
   KeyRound,
   Trophy,
+  BookOpen,
 } from "lucide-react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { auth, db } from "../../firebase/config";
 import {
@@ -165,13 +167,22 @@ const LandingScreen = ({ onGetStarted }: { onGetStarted: () => void }) => {
         <p className="mx-auto mt-4 max-w-xl text-lg text-zinc-400">
           Streamlined Judging & Event Management for Hackathons.
         </p>
-        <Button
-          onClick={onGetStarted}
-          size="lg"
-          className="mt-8 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 px-8 py-3 text-lg shadow-lg shadow-orange-500/30 transition-all duration-300 hover:scale-105 hover:from-orange-600 hover:to-orange-700 hover:shadow-orange-500/50"
-        >
-          Get Started
-        </Button>
+        <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
+          <Button
+            onClick={onGetStarted}
+            size="lg"
+            className="rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 px-8 py-3 text-lg shadow-lg shadow-orange-500/30 transition-all duration-300 hover:scale-105 hover:from-orange-600 hover:to-orange-700 hover:shadow-orange-500/50"
+          >
+            Get Started
+          </Button>
+          <Link
+            href="/instructions"
+            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3 text-lg font-bold text-zinc-300 shadow-inner shadow-white/10 transition-all duration-300 hover:scale-105 hover:border-white/20 hover:bg-white/10 hover:text-white"
+          >
+            <BookOpen className="size-5" />
+            How to Use
+          </Link>
+        </div>
       </motion.div>
     </div>
   );
